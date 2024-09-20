@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <button class="add-button">Add</button>
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h2>New Device</h2>
+                <select id="deviceType">
+                    <option value="Light">Light</option>
+                    <!-- Add other device types as needed -->
+                </select>
+            </div>
+            <div class="popup-body">
+                <input type="text" id="deviceId" placeholder="Device ID">
+                <input type="text" id="deviceName" placeholder="Device Name">
+            </div>
+            <div class="popup-footer">
+                <button id="cancelButton">Cancel</button>
+                <button id="doneButton">Done</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+<style>
+    .popup {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Black background with transparency */
+    z-index: 1;
+}
+
+/* Popup content */
+.popup-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #b2ebf2; /* Light blue background */
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+}
+
+/* Header styles */
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #B2D1D6;
+    width: 100%;
+    height: 70px;
+}
+
+/* Body styles */
+.popup-body {
+    margin-top: 20px;
+}
+
+.popup-body input {
+    width: 280px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+/* Footer styles */
+.popup-footer {
+    display: flex;
+    justify-content: space-between;
+}
+
+.popup-footer button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#cancelButton {
+    background-color: #ccc;
+}
+
+#doneButton {
+    background-color: #ff5722;
+    color: white;
+}
+</style>
+<script>document.addEventListener('DOMContentLoaded', () => {
+    const addButton = document.querySelector('.add-button');
+    const popup = document.getElementById('popup');
+    const cancelButton = document.getElementById('cancelButton');
+    const doneButton = document.getElementById('doneButton');
+
+    // Show the popup when the "Add" button is clicked
+    addButton.addEventListener('click', () => {
+        popup.style.display = 'block';
+    });
+
+    // Hide the popup when the "Cancel" button is clicked
+    cancelButton.addEventListener('click', () => {
+        popup.style.display = 'none';
+    });
+
+    // Handle the "Done" button (you can add more functionality here)
+    doneButton.addEventListener('click', () => {
+        // Get the input values
+        const deviceId = document.getElementById('deviceId').value;
+        const deviceName = document.getElementById('deviceName').value;
+        const deviceType = document.getElementById('deviceType').value;
+        
+        // Perform your actions with the input values here
+
+        // Hide the popup
+        popup.style.display = 'none';
+    });
+});
+</script>
