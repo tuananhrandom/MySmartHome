@@ -42,9 +42,9 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             arduinoSessions.remove(disconnectedDoorId);
 
             // Cập nhật lightIp và lightStatus thành null khi mất kết nối
-            doorService.updateDoorStatus(disconnectedDoorId,null, null, null);
+            doorService.updateDoorStatus(disconnectedDoorId, null, null, null);
             System.out.println(
-                    "Connection closed for Light ID: " + disconnectedDoorId + ". Door status and IP set to null.");
+                    "Connection closed for Door ID: " + disconnectedDoorId + ". Door status and IP set to null.");
         }
     }
 
@@ -70,10 +70,11 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void handleArduinoMessage(Long doorId, Integer doorStatus,Integer doorLockDown, String doorIp) {
+    private void handleArduinoMessage(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
         // Implement your logic to handle messages from Arduino devices
         System.out.println(
-                "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:"+doorLockDown+", IP: " + doorIp);
+                "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:" + doorLockDown
+                        + ", IP: " + doorIp);
         if (doorService.idIsExist(doorId)) {
             doorService.updateDoorStatus(doorId, doorLockDown, doorStatus, doorIp);
         } else {
@@ -89,6 +90,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + doorId);
+            doorService.updateDoorStatus(doorId, null, null, null);
         }
     }
 }
