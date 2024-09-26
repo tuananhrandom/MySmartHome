@@ -18,11 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusElement.className = 'status-on';
                 actionButton.textContent = 'turn off';
                 actionButton.className = 'action-button turn-off';
-            } else {
+            } else if(light.lightStatus === 0){
                 statusElement.textContent = 'OFF';
                 statusElement.className = 'status-off';
                 actionButton.textContent = 'turn on';
                 actionButton.className = 'action-button turn-on';
+            } else if (light.lightStatus === null){
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'status-on';
+                actionButton.textContent = '⟳';
+                actionButton.className = 'action-button refresh';
             }
         }
     }

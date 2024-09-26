@@ -3,6 +3,7 @@ com\example\smart\services\LightServicesImp.class
 com\example\smart\DTO\changeDoorDTO.class
 com\example\smart\websocket\DoorSocketHandler.class
 com\example\smart\SmartApplication.class
+com\example\smart\configuration\WebSocketHandlerAdapter.class
 com\example\smart\controllers\LightControllers.class
 com\example\smart\DTO\changeLightDTO.class
 com\example\smart\controllers\DoorControllers.class
@@ -15,4 +16,5 @@ com\example\smart\configuration\WebSocketConfig.class
 com\example\smart\entities\Light.class
 com\example\smart\websocket\LightSocketHandler.class
 com\example\smart\entities\devices.class
+com\example\smart\websocket\CameraSocketHandler.class
 com\example\smart\services\LightServices.class

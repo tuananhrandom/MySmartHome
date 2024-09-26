@@ -42,7 +42,7 @@ public class DoorControllers {
         if (doorServices.idIsExist(doorId)) {
             doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
             try {
-                doorSocketHandler.sendControlSignal(doorId, "doorStatus:" + doorStatus);
+                doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + doorLockDown);
                 return new ResponseEntity<>("Door updated", HttpStatus.OK);
             } catch (IOException e) {
                 // Xử lý ngoại lệ IOException
@@ -58,7 +58,7 @@ public class DoorControllers {
     public ResponseEntity<?> newDoor(@RequestBody Door door) {
         doorServices.newDoor(door);
         return new ResponseEntity<>(door, HttpStatus.CREATED);
-        
+
     }
 
     @DeleteMapping("/delete/{doorId}")
@@ -74,7 +74,7 @@ public class DoorControllers {
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamDoors() {
-    return doorServices.createSseEmitter();
+        return doorServices.createSseEmitter();
     }
 
 }

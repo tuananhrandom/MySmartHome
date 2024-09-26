@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (door.doorStatus === 1) {
                 statusElement.textContent = 'OPEN';
                 statusElement.className = 'status-on';
-            } else if (door.doorStatus === 'null') {
+            } else if (door.doorStatus === null) {
                 statusElement.textContent = 'Disconnected';
                 statusElement.className = 'status-on';
             } else {
@@ -50,11 +50,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButton.textContent = 'Alarm Off';
                 actionButton.className = 'action-button turn-off';
                 actionButton.style.display = 'inline-block';
-            } else if (door.doorLockDown === 'null') {
-                actionButton.style.display = 'none';
+            }
+            else if (door.doorLockDown === null) {
+                actionButton.textContent = '⟳'; // Nút refresh
+                actionButton.className = 'action-button refresh';
+                actionButton.style.display = 'inline-block';
             }
 
-            // Hiển thị và nhấp nháy cảnh báo khi cửa mở và alarm bật
+            //Hiển thị và nhấp nháy cảnh báo khi cửa mở và alarm bật
             if (door.doorStatus === 1 && door.doorLockDown === 1) {
                 warningElement.parentElement.style.visibility = 'visible'; // Hiển thị icon warning
                 warningElement.classList.add('warning-blink'); // Thêm hiệu ứng nhấp nháy
@@ -69,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.table').addEventListener('click', (event) => {
         const target = event.target;
 
-        if (target.classList.contains('action-button')) {
+        if (target.classList.contains('action-button') && !target.classList.contains('refresh')) {
             const doorElement = target.closest('.row');
             const checkId = doorElement.getAttribute('data-id').split('-')[0];
             if (checkId === 'door') {

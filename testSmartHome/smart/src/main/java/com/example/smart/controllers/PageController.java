@@ -11,6 +11,7 @@ import com.example.smart.entities.Light;
 import com.example.smart.entities.devices;
 import com.example.smart.services.DoorServices;
 import com.example.smart.services.LightServices;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 public class PageController {
@@ -39,5 +40,11 @@ public class PageController {
             return "fragments/doorTable";
         }
         return "fragments/lightTable";
-    }    
+    }
+
+    @GetMapping("/testcam")
+    public String getTestCam() {
+        return "test";
+    }
+
 }
