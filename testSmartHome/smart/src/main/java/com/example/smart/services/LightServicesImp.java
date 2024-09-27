@@ -33,13 +33,13 @@ public class LightServicesImp implements LightServices {
         selectedLight.setLightStatus(lightStatus);
         selectedLight.setLightIp(lightIp);
         lightRepo.save(selectedLight);
-        sendSseEvent(selectedLight);
+        sendSseEvent(selectedLight,"light-update");
     }
 
     @Override
     public void newLight(Light light) {
         lightRepo.save(light);
-        sendSseEvent(light);
+        sendSseEvent(light, "light-new");
     }
 
     @Override
@@ -76,8 +76,9 @@ public class LightServicesImp implements LightServices {
     public void deleteLight(Long lightId) {
         Light selected = lightRepo.findById(lightId).get();
         lightRepo.delete(selected);
+        sendSseEvent(selected, "light-delete");
     }
-
+    @Override
     public SseEmitter createSseEmitter() {
         SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
         emitters.add(emitter);
@@ -98,14 +99,14 @@ public class LightServicesImp implements LightServices {
         });
         emitters.removeAll(deadEmitters);
     }
-
-    public void sendSseEvent(Light light) {
+    @Override
+    public void sendSseEvent(Light light, String eventName) {
         List<SseEmitter> deadEmitters = new ArrayList<>();
         emitters.forEach(emitter -> {
             try {
                 // Convert Light object to JSON string
                 String lightData = new ObjectMapper().writeValueAsString(light);
-                emitter.send(SseEmitter.event().name("light-update").data(lightData));
+                emitter.send(SseEmitter.event().name(eventName).data(lightData));
             } catch (IOException e) {
                 deadEmitters.add(emitter);
             }

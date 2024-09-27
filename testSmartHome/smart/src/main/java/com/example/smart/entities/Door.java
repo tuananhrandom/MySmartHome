@@ -20,6 +20,8 @@ public class Door {
     private Integer doorStatus = null;
     @Column(name = "doorLockDown")
     private Integer doorLockDown = null;
+    @Column(name = "dooralert")
+    private Integer doorAlert = 0;
     @Column(name = "doorIp", unique = false, nullable = true)
     private String doorIp = null;
 }

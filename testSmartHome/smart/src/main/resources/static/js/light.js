@@ -62,6 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const light = JSON.parse(event.data);
         updateLightStatus(light);
     });
+    // nhận xóa đèn thông qua sse
+    eventSource.addEventListener('light-delete', function(event){
+        const deleteLight = JSON.parse(event.data);
+        const lightRow = document.querySelector(`.row[data-id='light-${deleteLight.lightId}']`);
+        if (lightRow) {
+            lightRow.remove();
+        }
+    });
 
     eventSource.onerror = function(error) {
         console.error('EventSource failed:', error);

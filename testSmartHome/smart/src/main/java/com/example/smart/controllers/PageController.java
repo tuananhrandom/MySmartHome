@@ -8,9 +8,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import com.example.smart.entities.Door;
 import com.example.smart.entities.Light;
+import com.example.smart.entities.Notification;
 import com.example.smart.entities.devices;
 import com.example.smart.services.DoorServices;
 import com.example.smart.services.LightServices;
+import com.example.smart.services.NotificationService;
+import com.example.smart.services.NotificationServiceImp;
+
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
@@ -20,11 +24,16 @@ public class PageController {
     @Autowired
     DoorServices doorServices;
 
+    @Autowired
+    NotificationServiceImp notificationServiceImp;
+
     @GetMapping("/home")
     public String getAllLight(Model model) {
         List<Light> lights = lightServices.getAllLight();
         model.addAttribute("deviceTypes", devices.values());
         model.addAttribute("lights", lights);
+        List<Notification> notifications = notificationServiceImp.getAllNotifications();
+        model.addAttribute("notifications",notifications);
         return "home";
     }
 
@@ -41,6 +50,13 @@ public class PageController {
         }
         return "fragments/lightTable";
     }
+    @GetMapping("/notification")
+    public String getNotification(Model model) {
+        List<Notification> notifications = notificationServiceImp.getAllNotifications();
+        model.addAttribute("notifications",notifications);
+        return "notification";
+    }
+    
 
     @GetMapping("/testcam")
     public String getTestCam() {

@@ -182,6 +182,7 @@ body {
     cursor: pointer;
     min-width: 30px;
 }
+
 .warning {
     visibility: hidden;
     text-align: center;
@@ -198,6 +199,11 @@ body {
 
 .warning-blink {
     animation: blink 1s infinite;
+}
+.action-button.check {
+    visibility: hidden; /* Mặc định ẩn nút check */
+    margin-left: 20px;
+
 }
 
 

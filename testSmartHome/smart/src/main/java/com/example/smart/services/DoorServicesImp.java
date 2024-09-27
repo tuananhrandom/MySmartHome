@@ -34,12 +34,13 @@ public class DoorServicesImp implements DoorServices {
         selectedDoor.setDoorIp(doorIp);
         selectedDoor.setDoorLockDown(doorLockDown);
         doorRepo.save(selectedDoor);
-        sendSseEvent(selectedDoor);
+        sendSseEvent(selectedDoor, "door-update");
     }
 
     @Override
     public void newDoor(Door door) {
         doorRepo.save(door);
+        sendSseEvent(door, "door-new");
     }
 
     @Override
@@ -76,8 +77,9 @@ public class DoorServicesImp implements DoorServices {
     public void deleteDoor(Long doorId) {
         Door selected = doorRepo.findById(doorId).get();
         doorRepo.delete(selected);
+        sendSseEvent(selected, "door-delete");
     }
-
+    @Override
     public SseEmitter createSseEmitter() {
         SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
         emitters.add(emitter);
@@ -98,13 +100,13 @@ public class DoorServicesImp implements DoorServices {
         });
         emitters.removeAll(deadEmitters);
     }
-
-    public void sendSseEvent(Door door) {
+    @Override
+    public void sendSseEvent(Door door, String eventName) {
         List<SseEmitter> deadEmitters = new ArrayList<>();
         emitters.forEach(emitter -> {
             try {
                 String doorData = new ObjectMapper().writeValueAsString(door);
-                emitter.send(SseEmitter.event().name("door-update").data(doorData));
+                emitter.send(SseEmitter.event().name(eventName).data(doorData));
             } catch (IOException e) {
                 deadEmitters.add(emitter);
             }

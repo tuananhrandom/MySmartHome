@@ -29,5 +29,5 @@ public interface LightServices {
 
     public SseEmitter createSseEmitter();
 
-    public void sendSseEvent(Light light);
+    public void sendSseEvent(Light light, String eventName);
 }

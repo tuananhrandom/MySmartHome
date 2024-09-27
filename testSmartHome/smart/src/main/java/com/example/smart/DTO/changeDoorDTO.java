@@ -8,5 +8,6 @@ import lombok.Setter;
 public class changeDoorDTO {
     private Integer doorLockDown;
     private Integer doorStatus;
+    private Integer doorAlert;
     private String doorIp;
 }

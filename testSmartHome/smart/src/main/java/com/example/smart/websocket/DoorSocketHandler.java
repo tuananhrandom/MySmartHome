@@ -60,7 +60,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         // Store the session in the map with Arduino ID as the key
         if (doorService.idIsExist(doorId)) {
             arduinoSessions.put(doorId, session);
-            handleArduinoMessage(doorId, doorLockDown, doorStatus, doorIp);
+            handleArduinoMessage(doorId, doorStatus, doorLockDown, doorIp);
             session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
         } else {
             System.out.println("Door ID trying to connect: " + doorId);
@@ -76,7 +76,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:" + doorLockDown
                         + ", IP: " + doorIp);
         if (doorService.idIsExist(doorId)) {
-            doorService.updateDoorStatus(doorId, doorLockDown, doorStatus, doorIp);
+            doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
         } else {
             System.err.println("Can't Update");
         }
