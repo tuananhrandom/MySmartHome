@@ -38,9 +38,10 @@ public class DoorControllers {
     public ResponseEntity<?> updateLightStatus(@PathVariable Long doorId, @RequestBody changeDoorDTO request) {
         Integer doorStatus = request.getDoorStatus();
         String doorIp = request.getDoorIp();
+        Integer doorAlert = request.getDoorAlert();
         Integer doorLockDown = request.getDoorLockDown();
         if (doorServices.idIsExist(doorId)) {
-            doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
+            doorServices.updateDoorStatusFront(doorId, doorStatus, doorLockDown, doorAlert, doorIp);
             try {
                 doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + doorLockDown);
                 return new ResponseEntity<>("Door updated", HttpStatus.OK);
@@ -53,7 +54,6 @@ public class DoorControllers {
             return new ResponseEntity<>("Door doesn't exist", HttpStatus.NOT_FOUND);
         }
     }
-
     @PostMapping("/newDoor")
     public ResponseEntity<?> newDoor(@RequestBody Door door) {
         doorServices.newDoor(door);

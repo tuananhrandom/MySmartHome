@@ -27,12 +27,30 @@ public class DoorServicesImp implements DoorServices {
     }
 
     @Override
-    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
+    public void updateDoorStatusESP(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
         Door selectedDoor = doorRepo.findById(doorId)
                 .orElseThrow(() -> new IllegalArgumentException("Door not found"));
+    
         selectedDoor.setDoorStatus(doorStatus);
         selectedDoor.setDoorIp(doorIp);
         selectedDoor.setDoorLockDown(doorLockDown);
+    
+        // Tự động cập nhật doorAlert nếu doorStatus = 1 và doorLockDown = 1
+        if (doorStatus == 1 && doorLockDown == 1) {
+            selectedDoor.setDoorAlert(1); // doorAlert sẽ bằng 1
+        }
+        doorRepo.save(selectedDoor);
+        sendSseEvent(selectedDoor, "door-update");
+    }
+    @Override
+    public void updateDoorStatusFront(Long doorId, Integer doorStatus, Integer doorLockDown, Integer doorAlert, String doorIp) {
+        Door selectedDoor = doorRepo.findById(doorId)
+                .orElseThrow(() -> new IllegalArgumentException("Door not found"));
+    
+        selectedDoor.setDoorStatus(doorStatus);
+        selectedDoor.setDoorIp(doorIp);
+        selectedDoor.setDoorLockDown(doorLockDown);
+        selectedDoor.setDoorAlert(doorAlert);
         doorRepo.save(selectedDoor);
         sendSseEvent(selectedDoor, "door-update");
     }

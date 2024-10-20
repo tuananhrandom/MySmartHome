@@ -198,13 +198,19 @@ body {
 }
 
 .warning-blink {
+    visibility: visible; /* Hiển thị khi class warning-blink được áp dụng */
     animation: blink 1s infinite;
 }
+/* nút check */
 .action-button.check {
     visibility: hidden; /* Mặc định ẩn nút check */
     margin-left: 20px;
-
 }
+
+.check-visible {
+    visibility: visible; /* Hiển thị nút check khi có class check-visible */
+}
+
 
 
 .delete-button{

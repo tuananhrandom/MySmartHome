@@ -9,7 +9,9 @@ import com.example.smart.entities.Door;
 public interface DoorServices {
     public List<Door> getAllDoor();
 
-    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
+    public void updateDoorStatusESP(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
+
+    public void updateDoorStatusFront(Long doorId, Integer doorStatus, Integer doorLockDown,Integer doorAlert, String doorIp);
 
     public void newDoor(Door door);
 
