@@ -14,18 +14,17 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-@Table(name ="notifications")
+@Table(name = "notifications")
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long notificationId;
     @Column(name = "notificationimage", nullable = false)
     private String notificationImage;
-    @Column(name="notificationtitle", nullable = false)
+    @Column(name = "notificationtitle", nullable = false)
     private String notificationTitle;
-    @Column(name="notificationcontent", nullable = false)
-    private  String notificationContent;
-    @Column(name="notificationtime", nullable = false)
+    @Column(name = "notificationcontent", nullable = false)
+    private String notificationContent;
+    @Column(name = "notificationtime", nullable = false)
     private LocalDateTime time;
-
 }

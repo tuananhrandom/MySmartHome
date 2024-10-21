@@ -3,12 +3,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateDoorStatus(door) {
         const doorElement = document.querySelector(`.row[data-id='${'door-' + door.doorId}']`);
-    
+
         if (!doorElement) {
             console.log('No door exists --> created new');
             return;
         }
-    
+
         if (doorElement) {
             doorElement.querySelector('.cell:nth-child(2)').textContent = door.doorName;
             doorElement.querySelector('.ip').textContent = `IP: ${door.doorIp}`;
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const warningElement = doorElement.querySelector('#door-warning span');
             const checkButtonElement = doorElement.querySelector('#check-btn');
             const doorAlertStatus = door.doorAlert;
-    
+
             // Cập nhật trạng thái cửa
             if (door.doorStatus === 1) {
                 statusElement.textContent = 'OPEN';
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusElement.textContent = 'CLOSE';
                 statusElement.className = 'status-off';
             }
-    
+
             // Cập nhật trạng thái lockdown
             const lockdownElement = doorElement.querySelector('#door-lockdown span');
             if (door.doorLockDown === 1) {
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lockdownElement.textContent = 'NULL';
                 lockdownElement.className = 'status-off';
             }
-    
+
             // Cập nhật nút action
             if (door.doorLockDown === 0) {
                 actionButton.textContent = 'Alert On';
@@ -57,33 +57,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButton.className = 'action-button refresh';
                 actionButton.style.display = 'inline-block';
             }
-    
+
             // Hiển thị và nhấp nháy warning nếu doorAlert = 1
             if (doorAlertStatus === 1) {
+                console.log("doorAlertStatus = " + door.doorAlert);
                 if (warningElement && warningElement.parentElement) {
                     warningElement.parentElement.style.visibility = 'visible';
                     warningElement.classList.add('warning-blink');
                     checkButtonElement.style.visibility = 'visible';
+                    console.log("bật cảnh báo nhé");
                 }
+                console.log("chạy đến hết if");
             } else {
                 if (warningElement && warningElement.parentElement) {
                     warningElement.classList.remove('warning-blink');
                     warningElement.parentElement.style.visibility = 'hidden';
                     checkButtonElement.style.visibility = 'hidden';
+                    console.log("tắt cảnh báo nhé");
                 }
+                console.log("đến hết else số 2");
             }
-    
-            // Kiểm tra trạng thái cửa và lockdown để cập nhật doorAlert
-            if (door.doorStatus === 1 && door.doorLockDown === 1) {
-                door.doorAlert = 1;
-                sendAlertNotification(door.doorId, door.doorName);
-                if (warningElement && warningElement.parentElement) {
-                    warningElement.parentElement.style.visibility = 'visible';
-                    warningElement.classList.add('warning-blink');
-                    checkButtonElement.style.visibility = 'visible';
-                }
-            }
-    
             // Lắng nghe sự kiện nhấn nút Check để tắt cảnh báo
             checkButtonElement.addEventListener('click', function () {
                 warningElement.classList.remove('warning-blink');
@@ -91,14 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkButtonElement.style.visibility = 'hidden';
                 // Cập nhật doorAlert về 0 khi người dùng nhấn nút Check
                 door.doorAlert = 0;
-                sendUpdateRequest(door.doorId,door.door.doorStatus,door.doorLockDown, door.doorAlert,door.doorIp); // Gửi cập nhật doorAlert về server
+                sendUpdateAlert(door.doorId, door.doorAlert); // Gửi cập nhật doorAlert về server
             });
         }
     }
 
     document.querySelector('.table').addEventListener('click', (event) => {
         const target = event.target;
-
+        reUpdateAllDoors();
         if (target.classList.contains('action-button') && !target.classList.contains('refresh') && !target.classList.contains('check')) {
             const doorElement = target.closest('.row');
             const checkId = doorElement.getAttribute('data-id').split('-')[0];
@@ -109,10 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const doorAlert = 0;
                 let doorStatus = (doorStatusText === 'OPEN') ? 1 : 0;
                 let doorLockDown = target.classList.contains('turn-on') ? 1 : 0;
-                if(doorStatus === 1 && doorAlert === 1){
-                    doorAlert =1;
+                if (doorStatus === 1 && doorAlert === 1) {
+                    doorAlert = 1;
                 }
-                sendUpdateRequest(doorId, doorStatus, doorLockDown,doorAlert, doorIp);
+                sendUpdateRequest(doorId, doorStatus, doorLockDown, doorAlert, doorIp);
+
+
             }
         } else if (target.classList.contains('delete-button')) {
             const doorElement = target.closest('.row');
@@ -124,6 +119,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        //thêm cập nhật trạng thái của cảnh báo và nút check
+        // Cập nhật hiệu ứng cảnh báo sau khi trạng thái thay đổi
+        // const warningElement = doorElement.querySelector('#door-warning span');
+        // const checkButtonElement = doorElement.querySelector('#check-btn');
+        // if (doorAlert === 1) {
+        //     warningElement.parentElement.style.visibility = 'visible';
+        //     warningElement.classList.add('warning-blink');
+        //     checkButtonElement.style.visibility = 'visible';
+        // } else {
+        //     warningElement.classList.remove('warning-blink');
+        //     warningElement.parentElement.style.visibility = 'hidden';
+        //     checkButtonElement.style.visibility = 'hidden';
+        // }
+
     });
 
     eventSource.addEventListener('door-update', function (event) {
@@ -172,6 +181,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error updating door:', error);
             });
     }
+    function sendUpdateAlert(doorId, doorAlert) {
+        fetch(`door/alert/${doorId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                doorAlert: doorAlert,
+            }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Update Alert successful:', data);
+            })
+            .catch(error => {
+                console.error('Error updating Door-Alert:', error);
+            });
+    }
+
 
     function sendDoorDeleteRequest(doorId) {
         fetch(`door/delete/${doorId}`, {
@@ -222,4 +250,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error', error);
             });
     }
+
+    // gán lại các sự kiện khi chuyển tab
+    function reUpdateAllDoors(){
+        const doorRows = document.querySelectorAll('.row[data-id^="door-"]');
+        doorRows.forEach(row => {
+            const doorId = row.getAttribute('data-id').replace('door-', ''); // Lấy doorId
+            const doorIp = row.querySelector('.ip').textContent.replace('IP: ', ''); // Lấy doorIp
+            const doorStatusText = row.querySelector('#door-status span').textContent; // Lấy trạng thái cửa (OPEN/CLOSE/Disconnected)
+            const doorLockDownText = row.querySelector('#door-lockdown span').textContent; // Lấy trạng thái cảnh báo (ON/OFF)
+            const doorAlert = row.getAttribute('doorAlert') // lấy doorAlert
+            console.log("đang gửi lại dữ liệu update")
+            // Chuyển trạng thái cửa thành giá trị số
+            let doorStatus;
+            if (doorStatusText === 'OPEN') {
+                doorStatus = 1;
+            } else if (doorStatusText === 'CLOSE') {
+                doorStatus = 0;
+            } else {
+                doorStatus = null; // Nếu Disconnected
+            }
+    
+            // Chuyển trạng thái lockdown thành giá trị số
+            let doorLockDown;
+            if (doorLockDownText === 'ON') {
+                doorLockDown = 1;
+            } else if (doorLockDownText === 'OFF') {
+                doorLockDown = 0;
+            } else {
+                doorLockDown = null; // Nếu Null
+            }
+    
+            // Nếu cần thêm các trường khác, có thể tiếp tục thu thập ở đây
+    
+            // Gửi yêu cầu cập nhật cho từng cửa
+            sendUpdateRequest(doorId, doorStatus, doorLockDown, doorAlert, doorIp);
+        });
+    }
+
 });

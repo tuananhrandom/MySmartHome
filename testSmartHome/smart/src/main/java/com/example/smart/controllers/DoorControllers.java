@@ -1,12 +1,14 @@
 package com.example.smart.controllers;
 
 import java.util.List;
+import java.util.Map;
 import java.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.example.smart.DTO.changeDoorDTO;
@@ -38,10 +40,9 @@ public class DoorControllers {
     public ResponseEntity<?> updateLightStatus(@PathVariable Long doorId, @RequestBody changeDoorDTO request) {
         Integer doorStatus = request.getDoorStatus();
         String doorIp = request.getDoorIp();
-        Integer doorAlert = request.getDoorAlert();
         Integer doorLockDown = request.getDoorLockDown();
         if (doorServices.idIsExist(doorId)) {
-            doorServices.updateDoorStatusFront(doorId, doorStatus, doorLockDown, doorAlert, doorIp);
+            doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
             try {
                 doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + doorLockDown);
                 return new ResponseEntity<>("Door updated", HttpStatus.OK);
@@ -54,6 +55,19 @@ public class DoorControllers {
             return new ResponseEntity<>("Door doesn't exist", HttpStatus.NOT_FOUND);
         }
     }
+
+    // sử dụng map để đọc giá trị integer
+    @PutMapping("/alert/{doorId}")
+    public ResponseEntity<?> updateDoorAlert(@PathVariable Long doorId, @RequestBody Map<String, Integer> payload) {
+        Integer doorAlert = payload.get("doorAlert");
+        if (doorServices.idIsExist(doorId)) {
+            doorServices.updateAlert(doorId, doorAlert);
+            return new ResponseEntity<>("Alert updated", HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>("Alert update fail", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     @PostMapping("/newDoor")
     public ResponseEntity<?> newDoor(@RequestBody Door door) {
         doorServices.newDoor(door);

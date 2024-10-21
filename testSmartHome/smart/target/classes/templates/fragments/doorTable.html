@@ -1,5 +1,5 @@
 <div th:fragment="doorTable">
-    <div th:each="door : ${doors}" class="row" th:attr="data-id=${'door-' + door.doorId}">
+    <div th:each="door : ${doors}" class="row" th:attr="data-id=${'door-' + door.doorId}" th:attrappend="doorAlert=${door.doorAlert}"> 
         <div id="door-logo" class="cell image"><img th:src="@{/picture/door.png}" alt="Door Image"></div>
         <div id="door-name" class="cell" th:text="${door.doorName}">Door Name</div>
         <div id="door-id" class="cell" th:text="'ID: ' + ${door.doorId}"></div>
@@ -27,15 +27,11 @@
             <button id="btn-refresh" th:if="${door.doorLockDown == null || door.doorStatus == null}"
                 class="action-button refresh" th:text="'⟳'">⟳</button>
         </div>
-        <div id="door-warning" class="cell warning" 
-        th:classappend="${door.doorStatus == 1 and door.doorLockDown == 1} ? 'warning-blink' : ''">
-       <span th:if="${door.doorStatus == 1 and door.doorLockDown == 1}">⚠️</span>
-   </div>
+        <div id="door-warning" class="cell warning">
+            <span>⚠️</span>
+        </div>
         <div class="cell action">
-            <button class="action-button check" id="check-btn" 
-                    th:classappend="${door.doorAlert == 0} ? 'check-visible' : ''">
-                Check
-            </button>
+            <button class="action-button check" id="check-btn">Check</button>
         </div>
         <div id="door-delete" class="cell delete">
             <button class="delete-button">✖</button>

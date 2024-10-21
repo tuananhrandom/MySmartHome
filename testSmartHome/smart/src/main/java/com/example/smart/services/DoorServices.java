@@ -9,9 +9,11 @@ import com.example.smart.entities.Door;
 public interface DoorServices {
     public List<Door> getAllDoor();
 
-    public void updateDoorStatusESP(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
+    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
 
-    public void updateDoorStatusFront(Long doorId, Integer doorStatus, Integer doorLockDown,Integer doorAlert, String doorIp);
+    // public void updateDoorStatusFront(Long doorId, Integer doorStatus, Integer
+    // doorLockDown, Integer doorAlert,
+    // String doorIp);
 
     public void newDoor(Door door);
 
@@ -32,4 +34,8 @@ public interface DoorServices {
     public SseEmitter createSseEmitter();
 
     public void sendSseEvent(Door door, String eventName);
+
+    public void updateAlert(Long doorId, Integer doorAlert);
+
+    public void sendDoorNotification(Long doorId, String doorName);
 }

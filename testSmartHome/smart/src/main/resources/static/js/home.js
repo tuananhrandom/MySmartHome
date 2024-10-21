@@ -94,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     // nhận xóa thông báo thông qua sse
     notificationEventSource.addEventListener('notification-delete', function (event) {
-        console.log("da vao den xoa tung notification")
         const deleteNotification = JSON.parse(event.data);
         const notificationItem = document.querySelector(`.notification-item[data-id='notification-${deleteNotification.notificationId}']`);
         if (notificationItem) {
@@ -103,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     notificationEventSource.addEventListener('notification-delete-all', function (event) {
         // Lấy phần tử chứa danh sách thông báo
-        console.log("da vao den xu ly notification");
         const notificationList = document.querySelector(".notification-list");
 
         // Làm rỗng nội dung của danh sách thô03ng báo
@@ -312,7 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(html => {
                 // Replace the inner content of the .table div
                 document.querySelector('.table').innerHTML = html;
+                reUpdateAllDoors();
             })
             .catch(error => console.error('Error fetching device data:', error));
-    }  
+    } 
+
+    
 });
