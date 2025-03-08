@@ -1,0 +1,23 @@
+<!-- <script type="text/javascript" th:src="@{/js/light.js}" defer></script> -->
+<div th:fragment="lightTable">
+    <div th:each="light : ${lights}" class="row" th:attr="data-id=${'light-' + light.lightId}">
+        <div id="light-image" class="cell image"><img th:src="@{/picture/light.png}" alt="Light Image"></div>
+        <div id="light-name" class="cell" th:text="${light.lightName}">Light Name</div>
+        <div id="light-id" class="cell" th:text="'ID: ' + ${light.lightId}"></div>
+        <div id="light-ip" class="cell ip" th:text="'IP: ' + ${light.lightIp}"></div>
+        <div id="light-status" class="cell status">
+            Status: 
+            <span th:if="${light.lightStatus == 1}" th:classappend="'status-on'" th:text="'ON'">ON</span>
+            <span th:if="${light.lightStatus == 0}" th:classappend="'status-off'" th:text="'OFF'">OFF</span>
+            <span th:if="${light.lightStatus == null}" th:classappend="'status-on'" th:text="'Disconnected'"></span>
+        </div>
+        <div id="light-action" class="cell action">
+            <button id="btn-turn-off"  th:if="${light.lightStatus == 1}" class="action-button turn-off" th:text="'turn off'">turn off</button>
+            <button id="btn-turn-on" th:if="${light.lightStatus == 0}" class="action-button turn-on" th:text="'turn on'">turn on</button>
+            <button id="btn-refresh"th:if="${light.lightStatus == null}" class="action-button refresh" th:text="'⟳'">⟳</button>
+        </div>
+        <div id="light-delete" class="cell delete">
+            <button class="delete-button">✖</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MySmartHome</title>
+    <link rel="stylesheet" th:href="@{css/homepage.css}">
+    <link rel="stylesheet" th:href="@{css/notification-popup.css}">
+    <link rel="icon" href="/picture/WebLogo.ico" type="image/x-icon" />
+    <script type="text/javascript" th:src="@{/js/home.js}" defer></script>
+    <script type="text/javascript" th:src="@{/js/light.js}" defer></script>
+    <script type="text/javascript" th:src="@{/js/door.js}" defer></script>
+    <script type="text/javascript" th:src="@{/js/notification.js}" defer></script>
+    <script type="text/javascript" th:src="@{/js/camera.js}" defer></script>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Smart Home Manager</h1>
+            <div class="header-right">
+                <div class="user-wrap">
+                    <img class="user" th:src="@{/picture/user-profile.png}" alt="User Picture">
+                </div>
+                <div class="notification">
+                    <span class="bell"></span>
+                    <span class="dot"></span>
+                   
+                </div>
+                <div class="notification-popup">
+                    <div class="header">
+                        <h2>Notifications</h2>
+                        <button id="notification-delete-all" class="delete-btn delete-all">Delete All</button>
+                    </div>
+                    <div class="notification-list">
+                        <div class="notification-item" th:each="notification : ${notifications}" th:attr="data-id=${'notification-' + notification.notificationId}">
+                            <div class="image-placeholder">
+                                <img class ="notification-image" th:src="@{${notification.notificationImage}}" alt="Image">
+                            </div>
+                            <div class="notification-content">
+                                <p class="notification-title" th:text="${notification.notificationTitle}"></p>
+                                <p class="notification-text" th:text="${notification.notificationContent} + ${notification.time}"></p>
+                            </div>
+                            <button id ="notification-delete" class="delete-btn">✖</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="content">
+            <div class="toolbar">
+                <div class="dropdown">
+                    <select id="deviceSelector" class="dropdown-button">
+                        <option th:each="device : ${deviceTypes}" th:value="${device}" th:text="${device}">Light
+                        </option>
+                    </select>
+                </div>
+                <div>
+                    <button class="add-button">Add</button>
+                    <div id="popup-overlay" class="popup-overlay"></div>
+                    <div id="popup" class="popup">
+                        <div class="popup-content">
+                            <div class="popup-header">
+                                <h2>New Device</h2>
+                                <select id="deviceType" class="dropdown-button">
+                                    <option th:each="device : ${deviceTypes}" th:value="${device}" th:text="${device}"
+                                        ;>Light</option>
+                                </select>
+                            </div>
+                            <div class="popup-body">
+                                <input type="text" id="deviceId" placeholder="Device ID">
+                                <input type="text" id="deviceName" placeholder="Device Name">
+                            </div>
+                            <div class="popup-footer">
+                                <button id="cancelButton">Cancel</button>
+                                <button id="doneButton">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table">
+                <div th:insert="~{fragments/lightTable :: lightTable}"></div>
+            </div>
+        </div>
+    </div>
+    <div class="copyright">
+        <span class="copyright-content">Copyright @ Nguyen Tuan Anh</span><br>
+        <span>Version: beta0.1</span>
+    </div>
+</body>
+
+</html>

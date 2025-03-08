@@ -1,0 +1,34 @@
+<div th:fragment="doorTable">
+    <div th:each="door : ${doors}" class="row" th:attr="data-id=${'door-' + door.doorId}">
+        <div id="door-logo"  class="cell image"><img th:src="@{/picture/door.png}" alt="Door Image"></div>
+        <div id="door-name"  class="cell" th:text="${door.doorName}">Door Name</div>
+        <div id="door-id"  class="cell" th:text="'ID: ' + ${door.doorId}"></div>
+        <div id="door-ip"  class="cell ip" th:text="'IP: ' + ${door.doorIp}"></div>
+        <div id="door-status"  class="cell status">
+            Status: 
+            <span th:if="${door.doorStatus != null and door.doorStatus == 1}" th:classappend="'status-on'" th:text="'OPEN'">OPEN</span>
+            <span th:if="${door.doorStatus != null and door.doorStatus == 0}" th:classappend="'status-off'" th:text="'CLOSE'">CLOSE</span>
+            <span th:if="${door.doorStatus == null}" th:classappend="'status-on'" th:text="'Disconnected'">Disconnected</span>
+        </div>
+        <div id="door-lockdown" class="cell status">
+            Alert:
+            <span th:if="${door.doorLockDown == 0}" th:classappend="'status-off'" th:text="OFF">OFF</span>
+            <span th:if="${door.doorLockDown == 1}" th:classappend="'status-on'" th:text="ON">ON</span>
+            <span th:if="${door.doorLockDown == null}" th:classappend="'status-on'" th:text="Null">Null</span>
+        </div>
+        <div id="door-action" class="cell action">
+            <button id="btn-turn-off"  th:if="${door.doorLockDown == 1}" class="action-button turn-off" th:text="'Alert Off'">Alarm Off</button>
+            <button id="btn-turn-on" th:if="${door.doorLockDown == 0}" class="action-button turn-on" th:text="'Alert On'">Alarm On</button>
+            <button id="btn-refresh"th:if="${door.doorLockDown == null || door.doorStatus == null}" class="action-button refresh" th:text="'⟳'">⟳</button>
+        </div>
+        <div id="door-warning" class="cell warning" th:value="0">
+            <span>⚠️</span>
+        </div>
+        <div class = "cell action" >
+            <button class="action-button check" id ="check-btn">Check</button>
+        </div>
+        <div id ="door-delete" class="cell delete">
+            <button class="delete-button">✖</button>
+        </div>
+    </div>
+</div>

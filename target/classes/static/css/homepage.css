@@ -1,0 +1,332 @@
+body {
+    font-family: Krub;
+    font-weight: 300;
+    margin: 0;
+    padding: 0;
+    background-color: #B9E0E9;
+}
+
+.container {
+    width: 95%;
+    margin: 0 auto;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #B2D1D6;
+    padding: 20px;
+    border-bottom: 5px solid #B9E0E9;
+}
+
+.header h1 {
+    margin: 0px;
+    font-size: 30px;
+    opacity: 0.7;
+
+}
+.header-right {
+    display: flex;
+    align-items: center;
+}
+.user-wrap {
+    display: flex;
+    align-items: center;
+    background-color: transparent;
+    margin-right: 20px; /* Tạo khoảng cách giữa avatar và notification */
+}
+
+.user {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #eeeeee;
+}
+.notification {
+    position: relative;
+}
+
+.bell::before {
+    content: '🔔';
+    font-size: 24px;
+}
+
+.dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background-color: #ff5252;
+    border-radius: 50%;
+}
+
+.content {
+    padding: 20px;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.dropdown-button, .add-button {
+    font-family: Krub;
+    background-color: #B2D1D6;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.dropdown-content {
+    font-family: Krub;
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+}
+
+.dropdown-content a {
+    font-family: Krub;
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    background-color: #f1f1f1;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+    background-color: #80deea;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    max-height:350px;
+    overflow-y:auto;
+    background-color: #B9E0E9;
+    border-radius: 10px;
+}
+/* Tùy chỉnh cho tất cả các thành phần có scrollbar */
+::-webkit-scrollbar {
+    width: 10px; /* Độ rộng của scrollbar */
+}
+
+/* Thanh trượt */
+::-webkit-scrollbar-thumb {
+    background-color: #B9E0E9; /* Màu của thanh trượt */
+    border-radius: 10px; /* Làm tròn góc của thanh trượt */
+    border: 2px solid #B2D1D6; /* Viền của thanh trượt */
+}
+
+/* Đường ray của scrollbar */
+::-webkit-scrollbar-track {
+    background: #B2D1D6; /* Màu nền của đường ray */
+    border-radius: 10px; /* Làm tròn góc của đường ray */
+}
+
+
+.row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #eeeeee;
+    padding: 10px 0;
+    justify-content: space-between;
+}
+
+.cell {
+    flex: 1;
+    padding: 10px;
+}
+
+.cell.image {
+    flex: 0 0 50px;
+}
+
+.cell img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+}
+
+.status {
+    color: #000;
+}
+
+.status-on {
+    color: #ff5252;
+}
+
+.status-off {
+    color: #009688;
+}
+
+.action-button, .delete-button {
+    background-color: #B2D1D6;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    min-width: 30px;
+}
+
+.warning {
+    visibility: hidden;
+    text-align: center;
+    display: inline-block;
+    margin-left:-30px;
+    margin-right:-50px;
+    font-size: 30px;
+}
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.warning-blink {
+    animation: blink 1s infinite;
+}
+.action-button.check {
+    visibility: hidden; /* Mặc định ẩn nút check */
+    margin-left: 20px;
+
+}
+
+
+.delete-button{
+    float: right;
+}
+
+.turn-off {
+    background-color: #ff5252;
+    color: #ffffff;
+}
+
+.turn-on {
+    background-color: #009688;
+    color: #ffffff;
+}
+.refresh {
+    background-color: #ff5252;
+    color: #ffffff;
+}
+
+/* Overlay background */
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Màu nền đen với độ mờ */
+    opacity: 0; /* Ban đầu ẩn nền */
+    visibility: hidden; /* Không hiển thị khi chưa bật */
+    transition: opacity 0.5s ease, visibility 0.5s ease; /* Hiệu ứng chuyển đổi */
+    z-index: 999; /* Đảm bảo overlay nằm trên cùng */
+}
+
+/* Khi overlay được hiển thị */
+.popup-overlay-show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Popup content */
+.popup-content {
+    font-family: Krub;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #B2D1D6; /* Light blue background */
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    /* background-color: rgba(0, 0, 0, 0.5); */
+    opacity: 0; /* Ban đầu ẩn popup */
+    visibility: hidden; /* Để chắc chắn nó không hiển thị khi ẩn */
+    transition: opacity 0.5s ease, visibility 0.5s ease; /* Thêm hiệu ứng chuyển đổi */
+    z-index: 1000;
+}
+
+/* Khi popup được hiển thị */
+.popup-show {
+    opacity: 1; /* Hiển thị popup */
+    visibility: visible; /* Hiển thị visibility */
+}
+
+/* Header styles */
+.popup-header {
+    font-family: Krub;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 70px;
+}
+
+/* Body styles */
+.popup-body {
+    font-family: Krub;
+    margin-top: 5px;
+}
+
+.popup-body input {
+    font-family: Krub;
+    width: 280px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 20px;
+    border: 1px solid #b2ebf2;
+}
+
+/* Footer styles */
+.popup-footer {
+    font-family: Krub;
+    display: flex;
+    justify-content: space-between;
+}
+
+.popup-footer button {
+    font-family: Krub;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#cancelButton {
+    background-color: #ffffff;
+    border-radius: 30px;
+}
+
+#doneButton {
+    background-color: #e22d2d;
+    color: rgb(255, 255, 255);
+    border-radius: 30px;
+}
+
+.popup-header .dropdown-button {
+    background-color: #ffffff;
+}
+.copyright{
+    align-items: center;
+    margin-top: 20px;
+    margin-left: 35px;
+    margin-bottom: 10px;
+    opacity: 0.7;
+}
