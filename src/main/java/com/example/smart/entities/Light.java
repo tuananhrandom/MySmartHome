@@ -3,6 +3,8 @@ package com.example.smart.entities;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,4 +27,8 @@ public class Light {
 
     @Column(name = "lightIP")
     private String lightIp = null;
+    @OneToOne
+    @JoinColumn(name ="ownerId", nullable =true)
+    User user;
+    
 }
