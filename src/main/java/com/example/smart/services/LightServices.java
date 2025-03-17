@@ -27,7 +27,4 @@ public interface LightServices {
 
     public void deleteLight(Long lightId);
 
-    public SseEmitter createSseEmitter();
-
-    public void sendSseEvent(Light light, String eventName);
 }

@@ -9,13 +9,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import com.example.smart.entities.Door;
 import com.example.smart.entities.Light;
 import com.example.smart.entities.Notification;
-import com.example.smart.entities.devices;
+import com.example.smart.entities.Devices;
 import com.example.smart.services.DoorServices;
 import com.example.smart.services.LightServices;
-import com.example.smart.services.NotificationService;
-import com.example.smart.services.NotificationServiceImp;
 
-import org.springframework.web.bind.annotation.RequestParam;
+import com.example.smart.services.NotificationService;
+import com.example.smart.services.SseService;
+
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 
 @Controller
 public class PageController {
@@ -25,12 +28,14 @@ public class PageController {
     DoorServices doorServices;
 
     @Autowired
-    NotificationServiceImp notificationServiceImp;
+    NotificationService notificationServiceImp;
+    @Autowired
+    SseService sseService;
 
     @GetMapping("/home")
     public String getAllLight(Model model) {
         List<Light> lights = lightServices.getAllLight();
-        model.addAttribute("deviceTypes", devices.values());
+        model.addAttribute("deviceTypes", Devices.values());
         model.addAttribute("lights", lights);
         List<Notification> notifications = notificationServiceImp.getAllNotifications();
         model.addAttribute("notifications", notifications);
@@ -65,5 +70,14 @@ public class PageController {
     public String getTestCam() {
         return "test";
     }
-
+        // đường sse
+        @GetMapping(value = "/stream/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        public SseEmitter streamNotification(@PathVariable Long userId) {
+            return sseService.createRecipientEmitter(userId);
+        }
+    
+        @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        public SseEmitter streamComment() {
+            return sseService.createSseEmitter();
+        }
 }

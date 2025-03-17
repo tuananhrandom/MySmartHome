@@ -12,6 +12,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 @Getter
@@ -29,9 +30,9 @@ public class Notification {
     private  String notificationContent;
     @Column(name="notificationtime", nullable = false)
     private LocalDateTime time;
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name ="actorId", nullable =false)
-    User user;
+    User actor;
     
 
 }

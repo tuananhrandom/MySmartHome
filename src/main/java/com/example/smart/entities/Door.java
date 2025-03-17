@@ -4,7 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,7 +18,7 @@ public class Door {
     private Long doorId;
     @Column(name = "doorName", unique = false, nullable = false)
     private String doorName;
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "ownerId", nullable = true)
     User user;
     @Column(name = "doorStatus", unique = false, nullable = true)
