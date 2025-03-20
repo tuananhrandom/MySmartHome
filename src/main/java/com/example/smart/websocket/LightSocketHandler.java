@@ -93,9 +93,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
         WebSocketSession session = arduinoSessions.get(lightId);
         if (session != null && session.isOpen()) {
             return true;
-        } else {
-            return false;
-
         }
+        return false;
     }
 }

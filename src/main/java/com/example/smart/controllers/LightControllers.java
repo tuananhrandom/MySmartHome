@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import com.example.smart.DTO.changeLightDTO;
+import com.example.smart.DTO.ChangeLightDTO;
 import com.example.smart.entities.Light;
 import com.example.smart.services.LightServicesImp;
 import com.example.smart.websocket.LightSocketHandler;
@@ -21,9 +21,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
 @RequestMapping("/light")
+@CrossOrigin(origins = "http://localhost:3000")
 public class LightControllers {
 
     @Autowired
@@ -37,7 +39,7 @@ public class LightControllers {
     }
 
     @PutMapping("/update/{lightId}") // cập nhật trạng thái của đèn arduino từ client
-    public ResponseEntity<?> updateLightStatus(@PathVariable Long lightId, @RequestBody changeLightDTO request) {
+    public ResponseEntity<?> updateLightStatus(@PathVariable Long lightId, @RequestBody ChangeLightDTO request) {
         Integer lightStatus = request.getLightStatus();
         String lightIp = request.getLightIp();
         if (lightServices.idIsExist(lightId)) {
@@ -80,6 +82,8 @@ public class LightControllers {
     // }
     // }
 
+    // người dùng gửi newLight (lightName, lightId) ở đây chỉ để xác nhận quyền sở
+    // hữu với đèn đã được arduino tạo ra
     @PostMapping("/newLight")
     public ResponseEntity<?> newLight(@RequestBody Light light) {
         lightServices.newLight(light);
@@ -97,8 +101,8 @@ public class LightControllers {
 
     }
 
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamLights() {
-        return lightServices.createSseEmitter();
-    }
+    // @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    // public SseEmitter streamLights() {
+    // return lightServices.createSseEmitter();
+    // }
 }

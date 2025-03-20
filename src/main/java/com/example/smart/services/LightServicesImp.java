@@ -13,6 +13,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.example.smart.entities.Light;
 import com.example.smart.repositories.LightRepositories;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.smart.services.SseService;
 
 @Service
 public class LightServicesImp implements LightServices {
@@ -20,6 +21,8 @@ public class LightServicesImp implements LightServices {
     LightRepositories lightRepo;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    @Autowired
+    SseService sseService;
 
     @Override
     public List<Light> getAllLight() {
@@ -32,14 +35,16 @@ public class LightServicesImp implements LightServices {
                 .orElseThrow(() -> new IllegalArgumentException("Light not found"));
         selectedLight.setLightStatus(lightStatus);
         selectedLight.setLightIp(lightIp);
+        Long recipientId = selectedLight.getUser().getUserId();
         lightRepo.save(selectedLight);
-        sendSseEvent(selectedLight,"light-update");
+        sseService.sendSseEventToRecipient(selectedLight, recipientId, "light-update");
     }
 
     @Override
     public void newLight(Light light) {
         lightRepo.save(light);
-        sendSseEvent(light, "light-new");
+        Long recipientId = light.getUser().getUserId();
+        sseService.sendSseEventToRecipient(light, recipientId, "light-create");
     }
 
     @Override
@@ -76,42 +81,44 @@ public class LightServicesImp implements LightServices {
     public void deleteLight(Long lightId) {
         Light selected = lightRepo.findById(lightId).get();
         lightRepo.delete(selected);
-        sendSseEvent(selected, "light-delete");
-    }
-    @Override
-    public SseEmitter createSseEmitter() {
-        SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
-        emitters.add(emitter);
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        return emitter;
+        Long recipientId = selected.getUser().getUserId();
+        sseService.sendSseEventToRecipient(selected, recipientId, "light-delete");
     }
 
-    @Scheduled(fixedRate = 15000)
-    public void sendHeartbeat() {
-        List<SseEmitter> deadEmitters = new ArrayList<>();
-        emitters.forEach(emitter -> {
-            try {
-                emitter.send(SseEmitter.event().name("heartbeat").data("heartbeat"));
-            } catch (IOException e) {
-                deadEmitters.add(emitter);
-            }
-        });
-        emitters.removeAll(deadEmitters);
-    }
-    @Override
-    public void sendSseEvent(Light light, String eventName) {
-        List<SseEmitter> deadEmitters = new ArrayList<>();
-        emitters.forEach(emitter -> {
-            try {
-                // Convert Light object to JSON string
-                String lightData = new ObjectMapper().writeValueAsString(light);
-                emitter.send(SseEmitter.event().name(eventName).data(lightData));
-            } catch (IOException e) {
-                deadEmitters.add(emitter);
-            }
-        });
-        emitters.removeAll(deadEmitters);
-    }
+    // @Override
+    // public SseEmitter createSseEmitter() {
+    // SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
+    // emitters.add(emitter);
+    // emitter.onCompletion(() -> emitters.remove(emitter));
+    // emitter.onTimeout(() -> emitters.remove(emitter));
+    // return emitter;
+    // }
+
+    // @Scheduled(fixedRate = 15000)
+    // public void sendHeartbeat() {
+    // List<SseEmitter> deadEmitters = new ArrayList<>();
+    // emitters.forEach(emitter -> {
+    // try {
+    // emitter.send(SseEmitter.event().name("heartbeat").data("heartbeat"));
+    // } catch (IOException e) {
+    // deadEmitters.add(emitter);
+    // }
+    // });
+    // emitters.removeAll(deadEmitters);
+    // }
+    // @Override
+    // public void sendSseEvent(Light light, String eventName) {
+    // List<SseEmitter> deadEmitters = new ArrayList<>();
+    // emitters.forEach(emitter -> {
+    // try {
+    // // Convert Light object to JSON string
+    // String lightData = new ObjectMapper().writeValueAsString(light);
+    // emitter.send(SseEmitter.event().name(eventName).data(lightData));
+    // } catch (IOException e) {
+    // deadEmitters.add(emitter);
+    // }
+    // });
+    // emitters.removeAll(deadEmitters);
+    // }
 
 }

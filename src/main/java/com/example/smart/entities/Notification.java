@@ -12,26 +12,26 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 @Getter
 @Setter
-@Table(name ="notifications")
+@Table(name = "notifications")
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long notificationId;
     @Column(name = "notificationimage", nullable = false)
     private String notificationImage;
-    @Column(name="notificationtitle", nullable = false)
+    @Column(name = "notificationtitle", nullable = false)
     private String notificationTitle;
-    @Column(name="notificationcontent", nullable = false)
-    private  String notificationContent;
-    @Column(name="notificationtime", nullable = false)
+    @Column(name = "notificationcontent", nullable = false)
+    private String notificationContent;
+    @Column(name = "notificationtime", nullable = false)
     private LocalDateTime time;
-    @OneToOne
-    @JoinColumn(name ="actorId", nullable =false)
+    @ManyToOne
+    @JoinColumn(name = "actorId", nullable = true)
     User user;
-    
 
 }

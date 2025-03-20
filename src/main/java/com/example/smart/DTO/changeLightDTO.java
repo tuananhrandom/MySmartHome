@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class changeLightDTO {
+public class ChangeLightDTO {
     private Integer lightStatus;
     private String lightIp;
 
