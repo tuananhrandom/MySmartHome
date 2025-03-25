@@ -12,17 +12,23 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.example.smart.entities.Light;
 import com.example.smart.repositories.LightRepositories;
+import com.example.smart.repositories.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.smart.services.SseService;
+import com.example.smart.websocket.LightSocketHandler;
 
 @Service
 public class LightServicesImp implements LightServices {
     @Autowired
+    LightSocketHandler lightSocketHandler;
+    @Autowired
     LightRepositories lightRepo;
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     @Autowired
-    SseService sseService;
+    UserRepository userRepo;
+
+    @Autowired(required = false)
+    private com.example.smart.websocket.ClientWebSocketHandler clientWebSocketHandler;
 
     @Override
     public List<Light> getAllLight() {
@@ -30,21 +36,66 @@ public class LightServicesImp implements LightServices {
     }
 
     @Override
-    public void updateLightStatus(Long lightId, Integer lightStatus, String lightIp) {
-        Light selectedLight = lightRepo.findById(lightId)
-                .orElseThrow(() -> new IllegalArgumentException("Light not found"));
-        selectedLight.setLightStatus(lightStatus);
-        selectedLight.setLightIp(lightIp);
-        Long recipientId = selectedLight.getUser().getUserId();
-        lightRepo.save(selectedLight);
-        sseService.sendSseEventToRecipient(selectedLight, recipientId, "light-update");
+    public List<Light> getLightByUserId(Long userId) {
+        return lightRepo.findByUser_UserId(userId);
     }
 
     @Override
-    public void newLight(Light light) {
-        lightRepo.save(light);
-        Long recipientId = light.getUser().getUserId();
-        sseService.sendSseEventToRecipient(light, recipientId, "light-create");
+    public Light getLightById(Long lightId) {
+        return lightRepo.findById(lightId).orElseThrow(() -> new IllegalArgumentException("Light not found"));
+    }
+
+    // cập nhật thông tin đèn từ ESP32
+    @Override
+    public void updateLightStatus(Long lightId, Integer lightStatus, String lightIp, Long ownerId) {
+        Light selectedLight = lightRepo.findById(lightId)
+                .orElseThrow(() -> new IllegalArgumentException("Light not found with ID: " + lightId));
+
+        selectedLight.setLightStatus(lightStatus);
+        selectedLight.setLightIp(lightIp);
+        if (ownerId == -1) {
+            selectedLight.setUser(null);
+        } else {
+            selectedLight.setUser(userRepo.findById(ownerId).get());
+        }
+
+        // Lưu thay đổi vào database
+        lightRepo.save(selectedLight);
+
+        // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
+        if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
+            clientWebSocketHandler.notifyLightUpdate(selectedLight);
+        } else {
+
+        }
+    }
+
+    // admin thêm một đèn mới được tạo ra vào database, đèn mới được tạo ra chỉ để
+    // xác thực Id này đã được tạo mới tất cả các trương khác đều là rỗng chờ đơi
+    // ESP32 và user thêm dữ liệu
+    @Override
+    public void adminAddNewLight(Long lightId) {
+        Light newLight = new Light();
+        newLight.setLightId(lightId);
+        newLight.setLightName(null);
+        newLight.setLightStatus(null);
+        newLight.setLightIp(null);
+        newLight.setUser(null);
+        lightRepo.save(newLight);
+    }
+
+    // user thêm một đèn mới vào quyền sở hữu của họ(cập nhật ownerId cho đèn, và
+    // đồng thời người dùng đặt tên cho đèn)
+    @Override
+    public void userAddLight(Long lightId, Long userId, String lightName) {
+        if (lightRepo.existsById(lightId) && lightRepo.findById(lightId).get().getUser() == null) {
+            Light thisLight = lightRepo.findById(lightId).get();
+            thisLight.setUser(userRepo.findById(userId).get());
+            thisLight.setLightName(lightName);
+            lightRepo.save(thisLight);
+        } else {
+            throw new IllegalArgumentException("Light not found or already owned");
+        }
     }
 
     @Override
@@ -82,43 +133,21 @@ public class LightServicesImp implements LightServices {
         Light selected = lightRepo.findById(lightId).get();
         lightRepo.delete(selected);
         Long recipientId = selected.getUser().getUserId();
-        sseService.sendSseEventToRecipient(selected, recipientId, "light-delete");
     }
 
-    // @Override
-    // public SseEmitter createSseEmitter() {
-    // SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
-    // emitters.add(emitter);
-    // emitter.onCompletion(() -> emitters.remove(emitter));
-    // emitter.onTimeout(() -> emitters.remove(emitter));
-    // return emitter;
-    // }
-
-    // @Scheduled(fixedRate = 15000)
-    // public void sendHeartbeat() {
-    // List<SseEmitter> deadEmitters = new ArrayList<>();
-    // emitters.forEach(emitter -> {
-    // try {
-    // emitter.send(SseEmitter.event().name("heartbeat").data("heartbeat"));
-    // } catch (IOException e) {
-    // deadEmitters.add(emitter);
-    // }
-    // });
-    // emitters.removeAll(deadEmitters);
-    // }
-    // @Override
-    // public void sendSseEvent(Light light, String eventName) {
-    // List<SseEmitter> deadEmitters = new ArrayList<>();
-    // emitters.forEach(emitter -> {
-    // try {
-    // // Convert Light object to JSON string
-    // String lightData = new ObjectMapper().writeValueAsString(light);
-    // emitter.send(SseEmitter.event().name(eventName).data(lightData));
-    // } catch (IOException e) {
-    // deadEmitters.add(emitter);
-    // }
-    // });
-    // emitters.removeAll(deadEmitters);
-    // }
+    @Override
+    public void userDeleteLight(Long lightId, Long userId) {
+        Light selectedLight = lightRepo.findById(lightId).get();
+        // tránh trường hợp một api từ user khác xóa light của user khác
+        if (selectedLight.getUser().getUserId() == userId) {
+            selectedLight.setUser(null);
+        }
+        lightRepo.save(selectedLight);
+        try {
+            lightSocketHandler.sendControlSignal(lightId, "ownerId:" + -1);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Light not found");
+        }
+    }
 
 }

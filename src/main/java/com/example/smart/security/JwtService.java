@@ -30,6 +30,12 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    // lấy userId từ token (thêm mới)
+    public Long extractUserId(String token) {
+        final Claims claims = extractAllClaims(token);
+        return ((Number) claims.get("userId")).longValue();
+    }
+
     // lấy claim từ token
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
@@ -39,6 +45,13 @@ public class JwtService {
     // tạo token mặc định
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
+    }
+
+    // tạo token với các claims tùy chọn và userId
+    public String generateToken(UserDetails userDetails, Long userId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        return generateToken(claims, userDetails);
     }
 
     // tạo token với các claims tùy chọn
@@ -55,10 +68,20 @@ public class JwtService {
                 .compact();
     }
 
-    // kiểm tra xem token có hợp lệ hay không
+    // kiểm tra xem token có hợp lệ hay không (dùng với UserDetails)
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    // kiểm tra xem token có hợp lệ hay không (không cần UserDetails)
+    public boolean isTokenValid(String token) {
+        try {
+            // Kiểm tra xem token có thể parse được không và không bị hết hạn
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // kiểm tra xem token có hết hạn hay không

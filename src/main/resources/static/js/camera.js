@@ -1,37 +1,59 @@
 const canvas = document.getElementById('videoCanvas');
-        const ctx = canvas.getContext('2d');
-        const ws = new WebSocket("ws://192.168.1.20:8080/ws/camera/livecamera");
+const ctx = canvas.getContext('2d');
 
-        ws.binaryType = 'arraybuffer';
+let ws = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
-        ws.onopen = function() {
-            console.log("WebSocket connection opened");
-        };
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/camera/livecamera`;
+    
+    ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
 
-        ws.onmessage = function(event) {
-            if (event.data instanceof ArrayBuffer) {
-                const blob = new Blob([event.data], { type: 'image/jpeg' });
-                const url = URL.createObjectURL(blob);
-                const img = new Image();
-                
-                img.onload = function() {
-                    // Điều chỉnh kích thước canvas dựa trên kích thước ảnh
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+    ws.onopen = function() {
+        console.log("WebSocket connection opened");
+        reconnectAttempts = 0;
+    };
 
-                    // Vẽ ảnh lên canvas
-                    ctx.drawImage(img, 0, 0, img.width, img.height);
-                    URL.revokeObjectURL(url);
-                };
+    ws.onmessage = function(event) {
+        if (event.data instanceof ArrayBuffer) {
+            const blob = new Blob([event.data], { type: 'image/jpeg' });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+                URL.revokeObjectURL(url);
+            };
 
-                img.src = url;
-            }
-        };
+            img.onerror = function() {
+                console.error("Error loading image");
+                URL.revokeObjectURL(url);
+            };
 
-        ws.onclose = function() {
-            console.log("WebSocket connection closed");
-        };
+            img.src = url;
+        }
+    };
 
-        ws.onerror = function(error) {
-            console.error("WebSocket error:", error);
-        };
+    ws.onclose = function() {
+        console.log("WebSocket connection closed");
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+            setTimeout(connectWebSocket, 5000);
+        } else {
+            console.error("Max reconnection attempts reached");
+        }
+    };
+
+    ws.onerror = function(error) {
+        console.error("WebSocket error:", error);
+    };
+}
+
+// Khởi tạo kết nối
+connectWebSocket();

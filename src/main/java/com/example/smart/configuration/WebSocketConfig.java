@@ -8,6 +8,7 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 import com.example.smart.websocket.CameraSocketHandler;
+import com.example.smart.websocket.ClientWebSocketHandler;
 import com.example.smart.websocket.DoorSocketHandler;
 import com.example.smart.websocket.LightSocketHandler;
 
@@ -24,11 +25,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Autowired
     CameraSocketHandler cameraSocketHandler;
 
+    @Autowired
+    ClientWebSocketHandler clientWebSocketHandler;
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(lightSocketHandler, "/ws/light").setAllowedOrigins("*");
         registry.addHandler(doorSocketHandler, "/ws/door").setAllowedOrigins("*");
         registry.addHandler(cameraSocketHandler, "/ws/camera/livecamera").setAllowedOrigins("*");
+        registry.addHandler(clientWebSocketHandler, "/ws/client").setAllowedOrigins("*");
     }
 
     // Tạo bean để cấu hình giới hạn kích thước tin nhắn

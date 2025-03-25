@@ -69,10 +69,11 @@ public class UserServiceImpl implements UserService {
 
                 userRepository.save(user);
                 // tạo token mặc định cho user mới đăng ký
-                var jwtToken = jwtService.generateToken(user);
+                var jwtToken = jwtService.generateToken(user, user.getUserId());
                 // trả về thông tin user và token
                 return AuthResponse.builder()
                                 .token(jwtToken)
+                                .userId(user.getUserId())
                                 .username(user.getUsername())
                                 .email(user.getEmail())
                                 .role(user.getRole().name())
@@ -89,10 +90,11 @@ public class UserServiceImpl implements UserService {
                 var user = userRepository.findByUsername(request.getUsername())
                                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng"));
 
-                var jwtToken = jwtService.generateToken(user);
+                var jwtToken = jwtService.generateToken(user, user.getUserId());
 
                 return AuthResponse.builder()
                                 .token(jwtToken)
+                                .userId(user.getUserId())
                                 .username(user.getUsername())
                                 .email(user.getEmail())
                                 .role(user.getRole().name())

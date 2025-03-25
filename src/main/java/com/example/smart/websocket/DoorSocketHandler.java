@@ -56,18 +56,21 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         Integer doorStatus = Integer.parseInt(data[1]);
         Integer doorLockDown = Integer.parseInt(data[2]);
         String doorIp = data[3];
+        arduinoSessions.put(doorId, session);
+        handleArduinoMessage(doorId, doorStatus, doorLockDown, doorIp);
+        session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
 
         // Store the session in the map with Arduino ID as the key
-        if (doorService.idIsExist(doorId)) {
-            arduinoSessions.put(doorId, session);
-            handleArduinoMessage(doorId, doorStatus, doorLockDown, doorIp);
-            session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
-        } else {
-            System.out.println("Door ID trying to connect: " + doorId);
-            System.err.println("illegal ID");
-            session.sendMessage(new TextMessage("Refuse connect"));
-            session.close(CloseStatus.BAD_DATA);
-        }
+        // if (doorService.idIsExist(doorId)) {
+        // arduinoSessions.put(doorId, session);
+        // handleArduinoMessage(doorId, doorStatus, doorLockDown, doorIp);
+        // session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
+        // } else {
+        // System.out.println("Door ID trying to connect: " + doorId);
+        // System.err.println("illegal ID");
+        // session.sendMessage(new TextMessage("Refuse connect"));
+        // session.close(CloseStatus.BAD_DATA);
+        // }
     }
 
     private void handleArduinoMessage(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
