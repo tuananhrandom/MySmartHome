@@ -46,23 +46,31 @@ public class LightControllers {
         return lightServices.getLightByUserId(userId);
     }
 
-    @PutMapping("/update/{lightId}") // cập nhật trạng thái của đèn arduino từ client
-    public ResponseEntity<?> updateLightStatus(@PathVariable Long lightId, @RequestBody ChangeLightDTO request) {
-        Integer lightStatus = request.getLightStatus();
-        String lightIp = request.getLightIp();
-        if (lightServices.idIsExist(lightId)) {
-            // lightServices.updateLightStatus(lightId, lightStatus, lightIp);
-            try {
-                lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + lightStatus);
-                return new ResponseEntity<>("Light updated", HttpStatus.OK);
-            } catch (IOException e) {
-                // Xử lý ngoại lệ IOException
-                e.printStackTrace(); // In ra chi tiết lỗi
-                return new ResponseEntity<>("Failed to send control signal", HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-        } else {
-            return new ResponseEntity<>("Light doesn't exist", HttpStatus.NOT_FOUND);
-        }
+    // @PutMapping("/update/{lightId}") // cập nhật trạng thái của đèn arduino từ
+    // client
+    // public ResponseEntity<?> updateLightStatus(@PathVariable Long lightId,
+    // @RequestBody ChangeLightDTO request) {
+    // Integer lightStatus = request.getLightStatus();
+    // String lightIp = request.getLightIp();
+    // if (lightServices.idIsExist(lightId)) {
+    // // lightServices.updateLightStatus(lightId, lightStatus, lightIp);
+    // try {
+    // lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + lightStatus);
+    // return new ResponseEntity<>("Light updated", HttpStatus.OK);
+    // } catch (IOException e) {
+    // // Xử lý ngoại lệ IOException
+    // e.printStackTrace(); // In ra chi tiết lỗi
+    // return new ResponseEntity<>("Failed to send control signal",
+    // HttpStatus.INTERNAL_SERVER_ERROR);
+    // }
+    // } else {
+    // return new ResponseEntity<>("Light doesn't exist", HttpStatus.NOT_FOUND);
+    // }
+    // }
+    @PutMapping("/toggle")
+    public ResponseEntity<?> toggleLight(@RequestParam Long lightId, @RequestParam Long userId) {
+        lightServices.toggleLight(lightId, userId);
+        return new ResponseEntity<>("Light updated", HttpStatus.OK);
     }
 
     // @PutMapping("/arduino/update/{lightId}") // cập nhật trạng thái của đèn

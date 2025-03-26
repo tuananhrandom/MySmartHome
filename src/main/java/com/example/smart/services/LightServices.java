@@ -9,6 +9,8 @@ import com.example.smart.entities.Light;
 public interface LightServices {
     public List<Light> getAllLight();
 
+    public void toggleLight(Long lightIp, Long ownerId);
+
     // public void updateLightStatus(Long lightId, Integer lightStatus, String
     // lightIp);
     // update lightStatus from ESP32, ESP32 sẽ là nơi tạo ra Light đầu tiên chứ

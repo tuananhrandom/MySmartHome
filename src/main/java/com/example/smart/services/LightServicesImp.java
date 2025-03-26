@@ -1,20 +1,16 @@
 package com.example.smart.services;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
+
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.example.smart.entities.Light;
 import com.example.smart.repositories.LightRepositories;
 import com.example.smart.repositories.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.example.smart.services.SseService;
+
 import com.example.smart.websocket.LightSocketHandler;
 
 @Service
@@ -88,11 +84,38 @@ public class LightServicesImp implements LightServices {
     // đồng thời người dùng đặt tên cho đèn)
     @Override
     public void userAddLight(Long lightId, Long userId, String lightName) {
+        // Kiểm tra đèn tồn tại và chưa có chủ sở hữu
         if (lightRepo.existsById(lightId) && lightRepo.findById(lightId).get().getUser() == null) {
             Light thisLight = lightRepo.findById(lightId).get();
-            thisLight.setUser(userRepo.findById(userId).get());
-            thisLight.setLightName(lightName);
-            lightRepo.save(thisLight);
+
+            try {
+                // Gửi yêu cầu thay đổi chủ sở hữu đến ESP32 và đợi phản hồi
+                CompletableFuture<Boolean> response = lightSocketHandler.sendControlSignalWithResponse(lightId,
+                        "ownerId:" + userId, "ownerId");
+
+                // Đợi kết quả từ ESP32 (với timeout 10 giây đã được xử lý trong phương thức)
+                boolean accepted = response.get(); // Sẽ chờ tối đa 10 giây
+
+                if (accepted) {
+                    // Nếu ESP32 chấp nhận, lưu thông tin vào database
+                    thisLight.setUser(userRepo.findById(userId).get());
+                    thisLight.setLightName(lightName);
+                    lightRepo.save(thisLight);
+
+                    // Thông báo đến client
+                    if (clientWebSocketHandler != null) {
+                        clientWebSocketHandler.notifyLightUpdate(thisLight);
+                    }
+
+                    System.out.println("ESP32 accepted ownership change for light: " + lightId);
+                } else {
+                    // Nếu ESP32 từ chối hoặc timeout
+                    throw new IllegalStateException("ESP32 rejected ownership change or did not respond");
+                }
+            } catch (Exception e) {
+                // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
+                throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
+            }
         } else {
             throw new IllegalArgumentException("Light not found or already owned");
         }
@@ -147,6 +170,20 @@ public class LightServicesImp implements LightServices {
             lightSocketHandler.sendControlSignal(lightId, "ownerId:" + -1);
         } catch (Exception e) {
             throw new IllegalArgumentException("Light not found");
+        }
+    }
+
+    @Override
+    public void toggleLight(Long lightId, Long ownerId) {
+        Light selectedLight = lightRepo.findById(lightId).get();
+        if (selectedLight != null && selectedLight.getUser().getUserId() == ownerId) {
+            selectedLight.setLightStatus(1 - selectedLight.getLightStatus());
+            lightRepo.save(selectedLight);
+            try {
+                lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + selectedLight.getLightStatus());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Light not found");
+            }
         }
     }
 
