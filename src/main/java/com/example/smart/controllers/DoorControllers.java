@@ -36,19 +36,18 @@ public class DoorControllers {
         return doorServices.getAllDoor();
     }
 
-    @PutMapping("/update/{doorId}") // cập nhật trạng thái của đèn arduino từ client
+    @PutMapping("/update/{doorId}")
     public ResponseEntity<?> updateLightStatus(@PathVariable Long doorId, @RequestBody ChangeDoorDTO request) {
         Integer doorStatus = request.getDoorStatus();
-        String doorIp = request.getDoorIp();
         Integer doorLockDown = request.getDoorLockDown();
+        String doorIp = request.getDoorIp();
         if (doorServices.idIsExist(doorId)) {
             doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
-            try {
-                doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + doorLockDown);
+            try{
+                doorSocketHandler.sendControlSignal(doorId, "doorLockDown: "+  doorLockDown);
                 return new ResponseEntity<>("Door updated", HttpStatus.OK);
             } catch (IOException e) {
-                // Xử lý ngoại lệ IOException
-                e.printStackTrace(); // In ra chi tiết lỗi
+                e.printStackTrace();
                 return new ResponseEntity<>("Failed to send control signal", HttpStatus.INTERNAL_SERVER_ERROR);
             }
         } else {
