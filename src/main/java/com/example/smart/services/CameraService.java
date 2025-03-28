@@ -1,0 +1,78 @@
+package com.example.smart.services;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.smart.entities.Camera;
+import com.example.smart.repositories.CameraRepositories;
+import com.example.smart.repositories.UserRepository;
+import com.example.smart.websocket.CameraSocketHandler;
+import com.example.smart.websocket.ClientWebSocketHandler;
+
+@Service
+public class CameraService {
+    @Autowired
+    CameraRepositories cameraRepo;
+    @Autowired
+    UserRepository userRepo;
+    @Autowired
+    ClientWebSocketHandler clientWebSocketHandler;
+    @Autowired
+    CameraSocketHandler cameraSocketHandler;
+
+    public List<Camera> getAllCamera() {
+        return cameraRepo.findAll();
+    }
+
+    public List<Camera> getCameraByUserId(Long userId) {
+        return cameraRepo.findByUser_UserId(userId);
+    }
+
+    public Camera getCameraById(Long cameraId) {
+        return cameraRepo.findByCameraId(cameraId);
+    }
+
+    public void userAddCamera(Long cameraId, Long userId, String cameraName) {
+        // Kiểm tra đèn tồn tại và chưa có chủ sở hữu
+        if (cameraRepo.existsById(cameraId) && cameraRepo.findById(cameraId).get().getUser() == null) {
+            Camera thisCamera = cameraRepo.findById(cameraId).get();
+
+            try {
+                // Gửi yêu cầu thay đổi chủ sở hữu đến ESP32 và đợi phản hồi
+                CompletableFuture<Boolean> response = cameraSocketHandler.sendControlSignalWithResponse(cameraId,
+                        "ownerId:" + userId, "ownerId");
+
+                // Đợi kết quả từ ESP32 (với timeout 10 giây đã được xử lý trong phương thức)
+                boolean accepted = response.get(); // Sẽ chờ tối đa 10 giây
+
+                if (accepted) {
+                    // Nếu ESP32 chấp nhận, lưu thông tin vào database
+                    thisCamera.setUser(userRepo.findById(userId).get());
+                    thisCamera.setCameraName(cameraName);
+                    cameraRepo.save(thisCamera);
+
+                    // Thông báo đến client
+                    if (clientWebSocketHandler != null) {
+                        clientWebSocketHandler.notifyCameraUpdate(thisCamera);
+                    }
+
+                    System.out.println("ESP32 accepted ownership change for camera: " + cameraId);
+                } else {
+                    // Nếu ESP32 từ chối hoặc timeout
+                    throw new IllegalStateException("ESP32 rejected ownership change or did not respond");
+                }
+            } catch (Exception e) {
+                // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
+                throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
+            }
+        } else {
+            throw new IllegalArgumentException("Light not found or already owned");
+        }
+    }
+
+    public void updateCameraStatus(Long cameraId, Integer cameraStatus, String cameraIp, Long ownerId) {
+    }
+}

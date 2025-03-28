@@ -3,6 +3,8 @@ package com.example.smart.websocket;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -17,6 +19,8 @@ import com.example.smart.services.DoorServicesImp;
 public class DoorSocketHandler extends TextWebSocketHandler {
     @Autowired
     DoorServicesImp doorService;
+
+    private Map<Long, Map<String, CompletableFuture<Boolean>>> pendingResponses = new ConcurrentHashMap<>();
 
     // Map to store WebSocket sessions with Arduino IDs as keys
     private Map<Long, WebSocketSession> arduinoSessions = new ConcurrentHashMap<>();
@@ -84,6 +88,42 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             System.err.println("Can't Update");
         }
     }
+     // Gửi lệnh điều khiển đến ESP32 và đợi phản hồi
+     public CompletableFuture<Boolean> sendControlSignalWithResponse(Long doorId, String controlMessage, String command)throws IOException {
+        // Tạo promise để đợi phản hồi
+        CompletableFuture<Boolean> responsePromise = new CompletableFuture<>();
+
+        // Lưu promise vào map để xử lý khi nhận được phản hồi
+        pendingResponses.computeIfAbsent(doorId, k -> new ConcurrentHashMap<>())
+                .put(command, responsePromise);
+
+        // Gửi lệnh điều khiển
+        WebSocketSession session = arduinoSessions.get(doorId);
+        if (session != null && session.isOpen()) {
+            session.sendMessage(new TextMessage(controlMessage));
+
+            // Đặt timeout 10 giây cho việc đợi phản hồi
+            CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS).execute(() -> {
+                if (!responsePromise.isDone()) {
+                    responsePromise.complete(false);
+                    // Xóa promise đã timeout
+                    Map<String, CompletableFuture<Boolean>> lightPromises = pendingResponses.get(doorId);
+                    if (lightPromises != null) {
+                        lightPromises.remove(command);
+                        if (lightPromises.isEmpty()) {
+                            pendingResponses.remove(doorId);
+                        }
+                    }
+                }
+            });
+
+            return responsePromise;
+        } else {
+            System.err.println("No active session found for Arduino ID: " + doorId);
+            responsePromise.complete(false);
+            return responsePromise;
+        }
+}
 
     public void sendControlSignal(Long doorId, String controlMessage) throws IOException {
         // Get the session associated with the Arduino ID

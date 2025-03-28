@@ -11,6 +11,8 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.example.smart.entities.Camera;
+import com.example.smart.entities.Door;
 import com.example.smart.entities.Light;
 import com.example.smart.security.JwtService;
 import com.example.smart.services.LightServicesImp;
@@ -93,14 +95,28 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    public void notifyDoorUpdate(Door door) {
+        if (door.getUser() != null) {
+            Long ownerId = door.getUser().getUserId();
+            sendDeviceUpdateToUser(ownerId, door, "door-update");
+        }
+    }
+    public void notifyCameraUpdate(Camera camera) {
+        System.out.println("đang gửi thông báo đến frontend");
+        if (camera.getUser() != null) {
+            Long ownerId = camera.getUser().getUserId();
+            sendDeviceUpdateToUser(ownerId, camera, "camera-update");
+        }
+    }
+
     private String extractTokenFromSession(WebSocketSession session) {
         String query = session.getUri().getQuery();
         if (query != null && query.startsWith("token=")) {
-            return query.substring(6); // "token=".length() == 6
+            return query.substring(6);
         }
         return null;
     }
-
+    
     private void storeUserSession(Long userId, WebSocketSession session) {
         userSessions.computeIfAbsent(userId, k -> new ConcurrentHashMap<>())
                 .put(session.getId(), session);

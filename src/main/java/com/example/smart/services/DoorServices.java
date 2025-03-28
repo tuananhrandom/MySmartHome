@@ -11,7 +11,15 @@ public interface DoorServices {
 
     public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
 
-    public void newDoor(Door door);
+    public void userAddDoor(Long doorId, Long userId, String doorName);
+
+    public void userRemoveDoor(Long doorId, Long userId);
+    
+    public List<Door> getDoorByUserId(Long userId);
+
+    public void toggleDoorAlarm(Long doorId, Long userId);
+
+    public void adminAddNewDoor(Long doorId);
 
     public Door findByDoorName(String doorName);
 
@@ -26,8 +34,4 @@ public interface DoorServices {
     public Door findByDoorIp(String doorIp);
 
     public void deleteDoor(Long doorId);
-
-    public SseEmitter createSseEmitter();
-
-    public void sendSseEvent(Door door, String eventName);
 }

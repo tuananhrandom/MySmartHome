@@ -1,5 +1,7 @@
 package com.example.smart.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -16,9 +18,11 @@ import jakarta.persistence.ManyToOne;
 public class Door {
     @Id
     private Long doorId;
-    @Column(name = "doorName", unique = false, nullable = false)
+    
+    @Column(name = "doorName", unique = false, nullable = true)
     private String doorName;
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "ownerId", nullable = true)
     User user;
     @Column(name = "doorStatus", unique = false, nullable = true)

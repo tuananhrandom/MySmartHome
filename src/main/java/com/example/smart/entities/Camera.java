@@ -1,6 +1,9 @@
 package com.example.smart.entities;
 
 import jakarta.persistence.Id;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
@@ -24,6 +27,7 @@ public class Camera {
     @Column(name = "cameraStatus", nullable = false)
     private Integer cameraStatus;
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "userId", nullable = false)
     private User user;
 

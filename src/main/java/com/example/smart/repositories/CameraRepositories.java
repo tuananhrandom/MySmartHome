@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 
 public interface CameraRepositories extends JpaRepository<Camera, Long> {
-    public List<Camera> findByUserUserId(Long userId);
+    public List<Camera> findByUser_UserId(Long userId);
 
+    public Camera findByCameraId(Long cameraId);
+    
 
 }
