@@ -101,6 +101,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
             sendDeviceUpdateToUser(ownerId, door, "door-update");
         }
     }
+
     public void notifyCameraUpdate(Camera camera) {
         System.out.println("đang gửi thông báo đến frontend");
         if (camera.getUser() != null) {
@@ -116,7 +117,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
         }
         return null;
     }
-    
+
     private void storeUserSession(Long userId, WebSocketSession session) {
         userSessions.computeIfAbsent(userId, k -> new ConcurrentHashMap<>())
                 .put(session.getId(), session);

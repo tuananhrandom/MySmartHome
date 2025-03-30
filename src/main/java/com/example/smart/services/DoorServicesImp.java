@@ -29,13 +29,13 @@ public class DoorServicesImp implements DoorServices {
     @Autowired
     DoorSocketHandler doorSocketHandler;
 
-
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     @Override
     public List<Door> getAllDoor() {
         return doorRepo.findAll();
     }
+
     @Override
     public void userRemoveDoor(Long doorId, Long userId) {
         Door thisDoor = doorRepo.findById(doorId).orElseThrow(() -> new IllegalArgumentException("Door not found"));
@@ -44,20 +44,35 @@ public class DoorServicesImp implements DoorServices {
             doorRepo.save(thisDoor);
         }
     }
+
     @Override
     public List<Door> getDoorByUserId(Long userId) {
-         return doorRepo.findByUser_UserId(userId);
-        
+        return doorRepo.findByUser_UserId(userId);
+
     }
 
     @Override
-    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
+    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp, Long ownerId) {
         Door selectedDoor = doorRepo.findById(doorId)
                 .orElseThrow(() -> new IllegalArgumentException("Door not found"));
         selectedDoor.setDoorStatus(doorStatus);
         selectedDoor.setDoorIp(doorIp);
         selectedDoor.setDoorLockDown(doorLockDown);
+        if (ownerId == -1) {
+            selectedDoor.setUser(null);
+        } else {
+            selectedDoor.setUser(userRepo.findById(ownerId).get());
+        }
+
+        // Lưu thay đổi vào database
         doorRepo.save(selectedDoor);
+
+        // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
+        if (clientWebSocketHandler != null && selectedDoor.getUser() != null) {
+            clientWebSocketHandler.notifyDoorUpdate(selectedDoor);
+        } else {
+
+        }
     }
 
     @Override
@@ -98,6 +113,7 @@ public class DoorServicesImp implements DoorServices {
             throw new IllegalArgumentException("Light not found or already owned");
         }
     }
+
     // user bật tắt báo động cửa
     @Override
     public void toggleDoorAlarm(Long doorId, Long userId) {
@@ -113,7 +129,8 @@ public class DoorServicesImp implements DoorServices {
             }
         }
     }
-    // admin thêm một thiết bị cửa mới vào db 
+
+    // admin thêm một thiết bị cửa mới vào db
     @Override
     public void adminAddNewDoor(Long doorId) {
         Door newDoor = new Door();
@@ -125,7 +142,6 @@ public class DoorServicesImp implements DoorServices {
         newDoor.setDoorLockDown(0);
         doorRepo.save(newDoor);
     }
-
 
     @Override
     public Door findByDoorName(String doorName) {
@@ -162,8 +178,5 @@ public class DoorServicesImp implements DoorServices {
         Door selected = doorRepo.findById(doorId).get();
         doorRepo.delete(selected);
     }
-
-
-
 
 }

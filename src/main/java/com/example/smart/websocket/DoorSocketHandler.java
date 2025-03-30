@@ -13,6 +13,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.example.smart.entities.Door;
 import com.example.smart.services.DoorServicesImp;
 
 @Component
@@ -32,7 +33,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        // Tìm ID của light tương ứng với session bị đóng
+        // Tìm ID của door tương ứng với session bị đóng
         Long disconnectedDoorId = null;
         for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
             if (entry.getValue().equals(session)) {
@@ -45,12 +46,13 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         if (disconnectedDoorId != null) {
             arduinoSessions.remove(disconnectedDoorId);
 
-            // Cập nhật lightIp và lightStatus thành null khi mất kết nối
-            doorService.updateDoorStatus(disconnectedDoorId, null, null, null);
+            // Cập nhật doorIp và doorStatus thành null khi mất kết nối
+            // doorService.updateDoorStatus(disconnectedDoorId, null, null, null,);
             System.out.println(
                     "Connection closed for Door ID: " + disconnectedDoorId + ". Door status and IP set to null.");
         }
     }
+    // chuỗi gửi lên có dạng : doorId:doorStatus:doorLockDown:doorIp:ownerId:token
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -60,9 +62,13 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         Integer doorStatus = Integer.parseInt(data[1]);
         Integer doorLockDown = Integer.parseInt(data[2]);
         String doorIp = data[3];
+        Long ownerId = Long.parseLong(data[4]);
+        String token = data[5];
         arduinoSessions.put(doorId, session);
-        handleArduinoMessage(doorId, doorStatus, doorLockDown, doorIp);
-        session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
+        if (handleArduinoMessage(session, doorId, doorStatus, doorLockDown, doorIp, ownerId, token)) {
+
+            session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + doorId));
+        }
 
         // Store the session in the map with Arduino ID as the key
         // if (doorService.idIsExist(doorId)) {
@@ -77,19 +83,58 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         // }
     }
 
-    private void handleArduinoMessage(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp) {
-        // Implement your logic to handle messages from Arduino devices
+    private boolean handleArduinoMessage(WebSocketSession session, Long doorId, Integer doorStatus,
+            Integer doorLockDown,
+            String doorIp,
+            Long ownerId, String token) {
+        String secretKey = "12344321";
+        String authToken = secretKey + doorId.toString();
         System.out.println(
                 "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:" + doorLockDown
-                        + ", IP: " + doorIp);
-        if (doorService.idIsExist(doorId)) {
-            doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
+                        + ", IP: " + doorIp + " , Token: " + token);
+        if (doorService.idIsExist(doorId) && token.equals(token)) {
+            System.out.println("Chap nhan ket noi tu: " + doorId);
+            arduinoSessions.put(doorId, session);
+
+            Door thisDoor = doorService.findByDoorId(doorId);
+            // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.
+            if (thisDoor.getUser() != null && thisDoor.getUser().getUserId() != ownerId) {
+                try {
+                    sendControlSignal(doorId, "ownerId:" + thisDoor.getUser().getUserId());
+
+                } catch (IOException err) {
+                    System.err.println("error while sending to door device");
+                }
+                doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp, thisDoor.getUser().getUserId());
+            } else if (thisDoor.getUser() == null && ownerId != -1) {
+                try {
+                    sendControlSignal(doorId, "ownerId:" + -1);
+
+                } catch (Exception e) {
+                    System.err.println("error while sending to door device");
+                }
+                // doorService.updatedoorStatus(doorId, doorStatus, doorIp, null);
+            } else {
+
+                doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp, ownerId);
+            }
+            return true;
         } else {
-            System.err.println("Can't Update");
+            // Nếu ID không tồn tại hoặc token không đúng thì đóng kết nối websocket
+            System.err.println("Can't Update - Invalid ID or Token");
+            try {
+                session.close(CloseStatus.BAD_DATA);
+
+            } catch (Exception e) {
+                System.err.println("error while Close");
+            }
+            return false;
         }
     }
-     // Gửi lệnh điều khiển đến ESP32 và đợi phản hồi
-     public CompletableFuture<Boolean> sendControlSignalWithResponse(Long doorId, String controlMessage, String command)throws IOException {
+
+    // Gửi lệnh điều khiển đến ESP32 và đợi phản hồi
+    public CompletableFuture<Boolean> sendControlSignalWithResponse(Long doorId, String controlMessage, String command)
+            throws IOException {
         // Tạo promise để đợi phản hồi
         CompletableFuture<Boolean> responsePromise = new CompletableFuture<>();
 
@@ -107,10 +152,10 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 if (!responsePromise.isDone()) {
                     responsePromise.complete(false);
                     // Xóa promise đã timeout
-                    Map<String, CompletableFuture<Boolean>> lightPromises = pendingResponses.get(doorId);
-                    if (lightPromises != null) {
-                        lightPromises.remove(command);
-                        if (lightPromises.isEmpty()) {
+                    Map<String, CompletableFuture<Boolean>> doorPromises = pendingResponses.get(doorId);
+                    if (doorPromises != null) {
+                        doorPromises.remove(command);
+                        if (doorPromises.isEmpty()) {
                             pendingResponses.remove(doorId);
                         }
                     }
@@ -123,7 +168,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             responsePromise.complete(false);
             return responsePromise;
         }
-}
+    }
 
     public void sendControlSignal(Long doorId, String controlMessage) throws IOException {
         // Get the session associated with the Arduino ID
@@ -133,7 +178,6 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + doorId);
-            doorService.updateDoorStatus(doorId, null, null, null);
         }
     }
 }

@@ -9,12 +9,12 @@ import com.example.smart.entities.Door;
 public interface DoorServices {
     public List<Door> getAllDoor();
 
-    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp);
+    public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp, Long ownerId);
 
     public void userAddDoor(Long doorId, Long userId, String doorName);
 
     public void userRemoveDoor(Long doorId, Long userId);
-    
+
     public List<Door> getDoorByUserId(Long userId);
 
     public void toggleDoorAlarm(Long doorId, Long userId);
