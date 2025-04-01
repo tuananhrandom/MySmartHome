@@ -57,6 +57,11 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
+        // Kiểm tra nếu đây là phản hồi từ ESP32 về yêu cầu thay đổi owner
+        if (payload.startsWith("response:")) {
+            handleEspResponse(payload);
+            return;
+        }
         String[] data = payload.split(":");
         Long doorId = Long.parseLong(data[0]);
         Integer doorStatus = Integer.parseInt(data[1]);
@@ -178,6 +183,36 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + doorId);
+            doorService.updateDoorStatus(doorId, null, null, null,
+                    doorService.findByDoorId(doorId).getUser().getUserId());
+        }
+    }
+
+    // Xử lý phản hồi từ ESP32
+    private void handleEspResponse(String payload) {
+        // Format: response:lightId:command:result
+        // Ví dụ: response:123:ownerId:accept
+        String[] parts = payload.split(":");
+        if (parts.length >= 4) {
+            Long lightId = Long.parseLong(parts[1]);
+            String command = parts[2];
+            String result = parts[3];
+
+            Map<String, CompletableFuture<Boolean>> lightPromises = pendingResponses.get(lightId);
+            if (lightPromises != null && lightPromises.containsKey(command)) {
+                CompletableFuture<Boolean> promise = lightPromises.get(command);
+                if ("accept".equals(result)) {
+                    promise.complete(true);
+                } else {
+                    promise.complete(false);
+                }
+
+                // Xóa promise đã hoàn thành
+                lightPromises.remove(command);
+                if (lightPromises.isEmpty()) {
+                    pendingResponses.remove(lightId);
+                }
+            }
         }
     }
 }

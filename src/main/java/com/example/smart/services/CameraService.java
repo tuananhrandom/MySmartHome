@@ -69,10 +69,45 @@ public class CameraService {
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
         } else {
-            throw new IllegalArgumentException("Light not found or already owned");
+            throw new IllegalArgumentException("camera not found or already owned");
         }
     }
 
     public void updateCameraStatus(Long cameraId, Integer cameraStatus, String cameraIp, Long ownerId) {
+        Camera selectedCamera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("camera not found with ID: " + cameraId));
+
+        selectedCamera.setCameraStatus(cameraStatus);
+        selectedCamera.setCameraIp(cameraIp);
+        if (ownerId == -1) {
+            selectedCamera.setUser(null);
+        } else {
+            selectedCamera.setUser(userRepo.findById(ownerId).get());
+        }
+
+        // Lưu thay đổi vào database
+        cameraRepo.save(selectedCamera);
+
+        // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
+        if (clientWebSocketHandler != null && selectedCamera.getUser() != null) {
+            clientWebSocketHandler.notifyCameraUpdate(selectedCamera);
+        } else {
+
+        }
+    }
+
+    public void adminAddNewCamera(Long CameraId) {
+        try {
+            Camera newCamera = new Camera();
+            newCamera.setCameraId(CameraId);
+            newCamera.setCameraName(null);
+            newCamera.setCameraStatus(null);
+            newCamera.setCameraIp(null);
+            newCamera.setUser(null);
+            cameraRepo.save(newCamera);
+
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create new Camera ");
+        }
     }
 }

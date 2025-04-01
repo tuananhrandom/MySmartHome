@@ -20,15 +20,15 @@ public class Camera {
     @Id
     private Long cameraId;
 
-    @Column(name = "cameraName", nullable = false)
+    @Column(name = "cameraName", nullable = true)
     private String cameraName;
-    @Column(name = "cameraIp", nullable = false)
+    @Column(name = "cameraIp", nullable = true)
     private String cameraIp;
-    @Column(name = "cameraStatus", nullable = false)
+    @Column(name = "cameraStatus", nullable = true)
     private Integer cameraStatus;
     @ManyToOne
     @JsonIgnore
-    @JoinColumn(name = "userId", nullable = false)
+    @JoinColumn(name = "userId", nullable = true)
     private User user;
 
 }

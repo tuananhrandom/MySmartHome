@@ -15,6 +15,9 @@ import com.example.smart.DTO.ChangeDoorDTO;
 import com.example.smart.entities.Door;
 import com.example.smart.services.DoorServicesImp;
 import com.example.smart.websocket.DoorSocketHandler;
+
+import jakarta.websocket.server.PathParam;
+
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,11 +40,13 @@ public class DoorControllers {
     public List<Door> getAllDoor() {
         return doorServices.getAllDoor();
     }
+
     // người dùng lấy đèn với ID của mình từ database
     @GetMapping("/{userId}")
     public List<Door> getDoorByUserId(@PathVariable Long userId) {
         return doorServices.getDoorByUserId(userId);
     }
+
     // người dùng thêm quyền sở hữu một đèn mới và đèn này sẽ được hiển thị trong
     // dashboard của họ.
     @PostMapping("/newdoor")
@@ -51,12 +56,14 @@ public class DoorControllers {
         System.out.println("request: " + request);
 
         String doorName = (String) request.get("doorName");
+        System.out.println(doorName);
         Long doorId = ((Number) request.get("doorId")).longValue(); // Chuyển Object về Long
 
         doorServices.userAddDoor(doorId, userId, doorName);
 
         return new ResponseEntity<>(doorId, HttpStatus.CREATED);
     }
+
     // user toggle door alarm
     @PutMapping("/toggle")
     public ResponseEntity<?> toggleDoorAlarm(@RequestParam Long doorId, @RequestParam Long userId) {
@@ -72,31 +79,33 @@ public class DoorControllers {
     }
 
     // @PutMapping("/update/{doorId}")
-    // public ResponseEntity<?> updateLightStatus(@PathVariable Long doorId, @RequestBody ChangeDoorDTO request) {
-    //     Integer doorStatus = request.getDoorStatus();
-    //     Integer doorLockDown = request.getDoorLockDown();
-    //     String doorIp = request.getDoorIp();
-    //     if (doorServices.idIsExist(doorId)) {
-    //         doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
-    //         try{
-    //             doorSocketHandler.sendControlSignal(doorId, "doorLockDown: "+  doorLockDown);
-    //             return new ResponseEntity<>("Door updated", HttpStatus.OK);
-    //         } catch (IOException e) {
-    //             e.printStackTrace();
-    //             return new ResponseEntity<>("Failed to send control signal", HttpStatus.INTERNAL_SERVER_ERROR);
-    //         }
-    //     } else {
-    //         return new ResponseEntity<>("Door doesn't exist", HttpStatus.NOT_FOUND);
-    //     }
+    // public ResponseEntity<?> updateLightStatus(@PathVariable Long doorId,
+    // @RequestBody ChangeDoorDTO request) {
+    // Integer doorStatus = request.getDoorStatus();
+    // Integer doorLockDown = request.getDoorLockDown();
+    // String doorIp = request.getDoorIp();
+    // if (doorServices.idIsExist(doorId)) {
+    // doorServices.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp);
+    // try{
+    // doorSocketHandler.sendControlSignal(doorId, "doorLockDown: "+ doorLockDown);
+    // return new ResponseEntity<>("Door updated", HttpStatus.OK);
+    // } catch (IOException e) {
+    // e.printStackTrace();
+    // return new ResponseEntity<>("Failed to send control signal",
+    // HttpStatus.INTERNAL_SERVER_ERROR);
+    // }
+    // } else {
+    // return new ResponseEntity<>("Door doesn't exist", HttpStatus.NOT_FOUND);
+    // }
     // }
 
     // @PostMapping("/newDoor")
     // public ResponseEntity<?> newDoor(@RequestBody Door door) {
-    //     doorServices.newDoor(door);
-    //     return new ResponseEntity<>(door, HttpStatus.CREATED);
+    // doorServices.newDoor(door);
+    // return new ResponseEntity<>(door, HttpStatus.CREATED);
 
     // }
-    // admin xóa cửa ra khỏi DB 
+    // admin xóa cửa ra khỏi DB
     @DeleteMapping("/delete/{doorId}")
     public ResponseEntity<?> deleteDoor(@PathVariable Long doorId) {
         if (doorServices.idIsExist(doorId)) {
@@ -106,5 +115,11 @@ public class DoorControllers {
             return new ResponseEntity<>("IP not found ", HttpStatus.BAD_REQUEST);
         }
 
+    }
+
+    @DeleteMapping("/user/delete")
+    public ResponseEntity<?> userRemoveDoor(@RequestParam Long doorId, @RequestParam Long userId) {
+        doorServices.userRemoveDoor(doorId, userId);
+        return new ResponseEntity<>("Deleted", HttpStatus.OK);
     }
 }

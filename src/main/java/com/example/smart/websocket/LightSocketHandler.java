@@ -186,6 +186,8 @@ public class LightSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + lightId);
+            lightService.updateLightStatus(lightId, null, null,
+                    lightService.getLightById(lightId).getUser().getUserId());
             // lightService.updateLightStatus(lightId, null, null,
             // lightService.findByLightId(lightId).getUser().getUserId());
             // lightService.updateLightStatus(lightId, null, null);

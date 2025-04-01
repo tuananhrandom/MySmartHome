@@ -38,10 +38,16 @@ public class DoorServicesImp implements DoorServices {
 
     @Override
     public void userRemoveDoor(Long doorId, Long userId) {
-        Door thisDoor = doorRepo.findById(doorId).orElseThrow(() -> new IllegalArgumentException("Door not found"));
-        if (thisDoor.getUser() != null && thisDoor.getUser().getUserId() == userId) {
-            thisDoor.setUser(null);
-            doorRepo.save(thisDoor);
+        Door selectedDoor = doorRepo.findById(userId).get();
+        // tránh trường hợp một api từ user khác xóa door của user khác
+        if (selectedDoor.getUser().getUserId() == userId) {
+            selectedDoor.setUser(null);
+        }
+        doorRepo.save(selectedDoor);
+        try {
+            doorSocketHandler.sendControlSignal(doorId, "ownerId:" + -1);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Door not found");
         }
     }
 
@@ -77,7 +83,7 @@ public class DoorServicesImp implements DoorServices {
 
     @Override
     public void userAddDoor(Long doorId, Long userId, String doorName) {
-        // Kiểm tra đèn tồn tại và chưa có chủ sở hữu
+        // Kiểm tra cửa tồn tại và chưa có chủ sở hữu
         if (doorRepo.existsById(doorId) && doorRepo.findById(doorId).get().getUser() == null) {
             Door thisDoor = doorRepo.findById(doorId).get();
 
