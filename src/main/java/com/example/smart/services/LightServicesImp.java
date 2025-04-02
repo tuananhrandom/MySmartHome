@@ -116,8 +116,14 @@ public class LightServicesImp implements LightServices {
                 // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
+            // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên đèn thôi
+        } else if (lightRepo.existsById(lightId) && lightRepo.findById(lightId).get().getUser().getUserId() == userId) {
+            Light thisLight = lightRepo.findById(lightId).get();
+            thisLight.setLightName(lightName);
+            lightRepo.save(thisLight);
+            clientWebSocketHandler.notifyLightUpdate(thisLight);
         } else {
-            throw new IllegalArgumentException("Light not found or already owned");
+            throw new IllegalStateException("Light already been Used");
         }
     }
 
