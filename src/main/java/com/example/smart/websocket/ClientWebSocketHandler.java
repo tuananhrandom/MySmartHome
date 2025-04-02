@@ -122,7 +122,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
         userSessions.computeIfAbsent(userId, k -> new ConcurrentHashMap<>())
                 .put(session.getId(), session);
     }
-
+    
     private void removeUserSession(Long userId, WebSocketSession session) {
         Map<String, WebSocketSession> sessions = userSessions.get(userId);
         if (sessions != null) {

@@ -39,7 +39,11 @@ public class AuthController {
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult result) {
         // Nếu có lỗi validation, trả về danh sách lỗi
         if (result.hasErrors()) {
+            // Tạo một Map để lưu trữ các lỗi validation
             Map<String, String> errors = new HashMap<>();
+            // Duyệt qua từng lỗi validation và thêm vào Map
+            // Với key là tên trường bị lỗi (error.getField())
+            // Và value là thông báo lỗi tương ứng (error.getDefaultMessage())
             result.getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
             return ResponseEntity.badRequest().body(errors);
         }
@@ -59,4 +63,5 @@ public class AuthController {
     public ResponseEntity<User> getCurrentUser() {
         return ResponseEntity.ok(userService.getCurrentUser());
     }
+    
 }

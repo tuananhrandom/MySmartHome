@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smart.entities.Camera;
 import com.example.smart.services.CameraService;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,6 +40,11 @@ public class CameraController {
         cameraService.adminAddNewCamera(cameraId);
 
         return new ResponseEntity<>("Created", HttpStatus.OK);
+    }
+    @DeleteMapping("/user/delete")
+    public ResponseEntity<?> UserRemoveCamera(@RequestParam Long cameraId, @RequestParam Long userId) {
+        cameraService.userRemoveCamera(cameraId, userId);
+        return new ResponseEntity<>("Deleted", HttpStatus.OK);
     }
 
 }

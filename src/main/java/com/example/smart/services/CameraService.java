@@ -23,6 +23,20 @@ public class CameraService {
     @Autowired
     CameraSocketHandler cameraSocketHandler;
 
+    public void userRemoveCamera(Long CameraId, Long userId) {
+        Camera selectedCamera = cameraRepo.findById(userId).get();
+        // tránh trường hợp một api từ user khác xóa Camera của user khác
+        if (selectedCamera.getUser().getUserId() == userId) {
+            selectedCamera.setUser(null);
+        }
+        cameraRepo.save(selectedCamera);
+        try {
+            cameraSocketHandler.sendControlSignal(CameraId, "ownerId:" + -1);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Camera not found");
+        }
+    }
+    
     public List<Camera> getAllCamera() {
         return cameraRepo.findAll();
     }
@@ -108,6 +122,13 @@ public class CameraService {
 
         } catch (Exception e) {
             throw new IllegalStateException("Failed to create new Camera ");
+        }
+    }
+
+    public void userDeleteLight(Long lightId, Long userId) {
+        Camera thisCamera = cameraRepo.findById(userId).get();
+        if (thisCamera != null) {
+            
         }
     }
 }

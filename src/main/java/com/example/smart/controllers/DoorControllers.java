@@ -70,6 +70,7 @@ public class DoorControllers {
         doorServices.toggleDoorAlarm(doorId, userId);
         return new ResponseEntity<>("Door alarm toggled", HttpStatus.OK);
     }
+    
 
     // admin tạo ra đèn mới với một ID cố định được đặt trong database
     @PostMapping("/admin/newdoor")
