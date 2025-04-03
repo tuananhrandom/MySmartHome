@@ -8,7 +8,10 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.FetchType;
 
 @Entity
@@ -33,5 +36,9 @@ public class Light {
     @JsonIgnore
     @JoinColumn(name = "ownerId", nullable = true)
     User user;
+    @JsonProperty("ownerId")
+    public Long getOwnerId() {
+    return user != null ? user.getUserId() : null;
+}
 
 }

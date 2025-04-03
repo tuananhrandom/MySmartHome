@@ -3,6 +3,7 @@ package com.example.smart.entities;
 import jakarta.persistence.Id;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,5 +31,10 @@ public class Camera {
     @JsonIgnore
     @JoinColumn(name = "userId", nullable = true)
     private User user;
+
+    @JsonProperty("ownerId")
+    public Long getOwnerId() {
+        return user != null ? user.getUserId() : null;
+    }
 
 }
