@@ -34,4 +34,6 @@ public interface DoorServices {
     public Door findByDoorIp(String doorIp);
 
     public void deleteDoor(Long doorId);
+
+    public void updateDoorAlert(Long doorId, Integer doorAlert);
 }

@@ -34,15 +34,6 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     private final BlockingQueue<BufferedImage> frameQueue = new LinkedBlockingQueue<>(750); // Lưu tối đa 750 khung hình
     private final Logger logger = Logger.getLogger(CameraSocketHandler.class.getName());
 
-    // Cài đặt về tốc độ khung hình và độ phân giải
-    private static final int FRAME_RATE = 15;
-    private static final int WIDTH = 1280;
-    private static final int HEIGHT = 720;
-    private static final int VIDEO_DURATION_FRAMES = FRAME_RATE * 30; // Số lượng khung hình cần thiết cho video 30 giây
-
-    // Executor cho việc lưu video
-    private final ExecutorService videoSavingExecutor = Executors.newSingleThreadExecutor();
-
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessions.add(session);
@@ -54,21 +45,6 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
         byte[] payload = message.getPayload().array();
 
         // Chuyển byte[] JPEG thành BufferedImage
-        BufferedImage frame = ImageIO.read(new ByteArrayInputStream(payload));
-
-        if (frame != null) {
-            // Nếu đã đủ 750 khung hình thì bắt đầu lưu video
-            if (frameQueue.size() >= VIDEO_DURATION_FRAMES) {
-                logger.info("Đã đủ khung hình, bắt đầu lưu video...");
-                saveVideoAsync(); // Gọi hàm lưu video không đồng bộ
-            }
-
-            // Thêm khung hình mới vào hàng đợi
-            if (!frameQueue.offer(frame)) {
-                logger.warning("Frame queue đầy, khung hình bị bỏ qua.");
-            }
-        }
-
         broadcast(payload); // Phát khung hình cho tất cả các WebSocket client kết nối
     }
 
@@ -90,118 +66,50 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
         });
     }
 
-    private void saveVideoAsync() {
-        videoSavingExecutor.submit(this::saveVideo); // Gửi tác vụ lưu video vào luồng riêng
-    }
-
-    private void saveVideo() {
-        System.out.println("luu nhe !!!!!!!!!!!!!!!!!");
-        try {
-            File file = new File("./CameraStream/" + System.currentTimeMillis() + ".mp4");
-            try (FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(file, WIDTH, HEIGHT)) {
-                recorder.setFrameRate(FRAME_RATE);
-                recorder.setVideoCodec(org.bytedeco.ffmpeg.global.avcodec.AV_CODEC_ID_H264);
-                recorder.setFormat("mp4");
-                recorder.setPixelFormat(org.bytedeco.ffmpeg.global.avutil.AV_PIX_FMT_YUV420P);
-
-                recorder.start();
-                Java2DFrameConverter converter = new Java2DFrameConverter();
-
-                // Lưu chính xác 30 giây khung hình (450 khung hình với 15 FPS)
-                for (int i = 0; i < VIDEO_DURATION_FRAMES; i++) {
-                    BufferedImage bufferedImage = frameQueue.poll();
-                    if (bufferedImage != null) {
-                        Frame frame = converter.convert(bufferedImage);
-                        recorder.record(frame);
-                    }
-                }
-
-                recorder.stop();
-                logger.info("Video 30 giây đã được lưu tại: " + file.getAbsolutePath());
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Lỗi khi lưu video", e);
-            }
-        } catch (Exception exception) {
-            System.out.println("Loi tao file");
-        }
-
-        // Sau khi lưu video, hàng đợi được làm trống để tiếp tục thu thập khung hình
-        // mới
-        frameQueue.clear();
-    }
-
     private Map<Long, WebSocketSession> arduinoSessions = new ConcurrentHashMap<>();
 
     // Map để lưu trữ các promise đang chờ phản hồi từ ESP32
     private Map<Long, Map<String, CompletableFuture<Boolean>>> pendingResponses = new ConcurrentHashMap<>();
 
     // @Override
-    // public void afterConnectionEstablished(WebSocketSession session) throws
-    // Exception {
-    // System.out.println("a Light Connected");
+    // public void handleTextMessage(WebSocketSession session, TextMessage message)
+    // {
+    // try {
+    // String payload = message.getPayload();
+    // System.out.println("payload: " + payload);
+
+    // // Kiểm tra nếu đây là phản hồi từ ESP32 về yêu cầu thay đổi owner
+    // if (payload.startsWith("response:")) {
+    // handleEspResponse(payload);
+    // return;
     // }
 
-    // @Override
-    // public void afterConnectionClosed(WebSocketSession session, CloseStatus
-    // status) throws Exception {
-    // // Tìm ID của light tương ứng với session bị đóng
-    // Long disconnectedLightId = null;
-    // for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
-    // if (entry.getValue().equals(session)) {
-    // disconnectedLightId = entry.getKey();
-    // break;
-    // }
+    // String[] data = payload.split(":");
+    // if (data.length < 1) {
+    // System.err.println("Dữ liệu không hợp lệ: " + payload);
+    // return;
     // }
 
-    // // Xóa session bị đóng
-    // if (disconnectedLightId != null) {
-    // arduinoSessions.remove(disconnectedLightId);
+    // Long cameraId = Long.parseLong(data[0]);
+    // Integer cameraStatus = Integer.parseInt(data[1]);
+    // String lightIp = data[2];
+    // Long ownerId = Long.parseLong(data[3]);
+    // String arduinoToken = data[4];
 
-    // // Cập nhật lightIp và lightStatus thành null khi mất kết nối
-    // lightService.updateLightStatus(disconnectedLightId, null, null,
-    // lightService.findByLightId(disconnectedLightId).getUser().getUserId());
-    // System.out.println(
-    // "Connection closed for Light ID: " + disconnectedLightId + ". Light status
-    // and IP set to null.");
+    // // if (handleArduinoMessage(session, lightId, lightStatus, lightIp, ownerId,
+    // arduinoToken)) {
+    // // session.sendMessage(new TextMessage("Đã nhận được thông tin từ: " +
+    // lightId));
+    // }
+    // } catch (NumberFormatException e) {
+    // System.err.println("Lỗi chuyển đổi kiểu số: " + e.getMessage());
+    // } catch (IOException e) {
+    // System.err.println("Lỗi khi gửi tin nhắn WebSocket: " + e.getMessage());
+    // } catch (Exception e) {
+    // System.err.println("Lỗi không xác định: " + e.getMessage());
+    // e.printStackTrace();
     // }
     // }
-
-    @Override
-    public void handleTextMessage(WebSocketSession session, TextMessage message) {
-        try {
-            String payload = message.getPayload();
-            System.out.println("payload: " + payload);
-
-            // Kiểm tra nếu đây là phản hồi từ ESP32 về yêu cầu thay đổi owner
-            if (payload.startsWith("response:")) {
-                handleEspResponse(payload);
-                return;
-            }
-
-            String[] data = payload.split(":");
-            if (data.length < 5) {
-                System.err.println("Dữ liệu không hợp lệ: " + payload);
-                return;
-            }
-
-            Long lightId = Long.parseLong(data[0]);
-            Integer lightStatus = Integer.parseInt(data[1]);
-            String lightIp = data[2];
-            Long ownerId = Long.parseLong(data[3]);
-            String arduinoToken = data[4];
-
-            if (handleArduinoMessage(session, lightId, lightStatus, lightIp, ownerId, arduinoToken)) {
-                session.sendMessage(new TextMessage("Đã nhận được thông tin từ: " + lightId));
-            }
-        } catch (NumberFormatException e) {
-            System.err.println("Lỗi chuyển đổi kiểu số: " + e.getMessage());
-        } catch (IOException e) {
-            System.err.println("Lỗi khi gửi tin nhắn WebSocket: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Lỗi không xác định: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
 
     // Xử lý phản hồi từ ESP32
     private void handleEspResponse(String payload) {
@@ -266,7 +174,8 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     }
 
     // Gửi lệnh điều khiển đến ESP32 và đợi phản hồi
-    public CompletableFuture<Boolean> sendControlSignalWithResponse(Long cameraId, String controlMessage, String command)
+    public CompletableFuture<Boolean> sendControlSignalWithResponse(Long cameraId, String controlMessage,
+            String command)
             throws IOException {
         // Tạo promise để đợi phản hồi
         CompletableFuture<Boolean> responsePromise = new CompletableFuture<>();

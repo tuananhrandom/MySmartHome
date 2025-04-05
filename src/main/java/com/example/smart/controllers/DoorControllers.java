@@ -70,7 +70,6 @@ public class DoorControllers {
         doorServices.toggleDoorAlarm(doorId, userId);
         return new ResponseEntity<>("Door alarm toggled", HttpStatus.OK);
     }
-    
 
     // admin tạo ra đèn mới với một ID cố định được đặt trong database
     @PostMapping("/admin/newdoor")
@@ -116,6 +115,13 @@ public class DoorControllers {
             return new ResponseEntity<>("IP not found ", HttpStatus.BAD_REQUEST);
         }
 
+    }
+
+    // user da check cua va tat canh bao tren front end
+    @PutMapping("check/{doorId}")
+    public ResponseEntity<?> changeDoorAlert(@PathVariable Long doorId) {
+        doorServices.updateDoorAlert(doorId, 0);
+        return new ResponseEntity<>("OK", HttpStatus.OK);
     }
 
     @DeleteMapping("/user/delete")

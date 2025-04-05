@@ -185,6 +185,7 @@ public class LightServicesImp implements LightServices {
         if (selectedLight != null && selectedLight.getUser().getUserId() == ownerId) {
             selectedLight.setLightStatus(1 - selectedLight.getLightStatus());
             lightRepo.save(selectedLight);
+            clientWebSocketHandler.notifyLightUpdate(selectedLight);
             try {
                 lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + selectedLight.getLightStatus());
             } catch (Exception e) {

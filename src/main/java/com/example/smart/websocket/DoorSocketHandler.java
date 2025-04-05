@@ -62,6 +62,10 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             handleEspResponse(payload);
             return;
         }
+        if (payload.startsWith("alerted:")) {
+            handleAlert(payload);
+            return;
+        }
         String[] data = payload.split(":");
         Long doorId = Long.parseLong(data[0]);
         Integer doorStatus = Integer.parseInt(data[1]);
@@ -213,6 +217,15 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                     pendingResponses.remove(lightId);
                 }
             }
+        }
+    }
+
+    private void handleAlert(String payload) {
+        String[] parts = payload.split(":");
+        System.out.println("doorSaid:" + payload);
+        if (parts.length >= 1) {
+            Long doorId = Long.parseLong(parts[1]);
+            doorService.updateDoorAlert(doorId, 1);
         }
     }
 }

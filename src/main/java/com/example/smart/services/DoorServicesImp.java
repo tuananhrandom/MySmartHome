@@ -120,6 +120,18 @@ public class DoorServicesImp implements DoorServices {
         }
     }
 
+    @Override
+    public void updateDoorAlert(Long doorId, Integer doorAlert) {
+        Door thisDoor = doorRepo.findById(doorId).get();
+        if (thisDoor != null) {
+            thisDoor.setDoorAlert(doorAlert);
+            doorRepo.save(thisDoor);
+            clientWebSocketHandler.notifyDoorUpdate(thisDoor);
+        } else {
+            System.err.println("Can't find Door");
+        }
+    }
+
     // user bật tắt báo động cửa
     @Override
     public void toggleDoorAlarm(Long doorId, Long userId) {
