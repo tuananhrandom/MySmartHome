@@ -100,7 +100,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         String authToken = secretKey + doorId.toString();
         System.out.println(
                 "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:" + doorLockDown
-                        + ", IP: " + doorIp + " , Token: " + token);
+                        + ", IP: " + doorIp + " , Token: " + authToken);
         if (doorService.idIsExist(doorId) && token.equals(token)) {
             System.out.println("Chap nhan ket noi tu: " + doorId);
             arduinoSessions.put(doorId, session);
@@ -194,17 +194,17 @@ public class DoorSocketHandler extends TextWebSocketHandler {
 
     // Xử lý phản hồi từ ESP32
     private void handleEspResponse(String payload) {
-        // Format: response:lightId:command:result
+        // Format: response:doorId:command:result
         // Ví dụ: response:123:ownerId:accept
         String[] parts = payload.split(":");
         if (parts.length >= 4) {
-            Long lightId = Long.parseLong(parts[1]);
+            Long doorId = Long.parseLong(parts[1]);
             String command = parts[2];
             String result = parts[3];
 
-            Map<String, CompletableFuture<Boolean>> lightPromises = pendingResponses.get(lightId);
-            if (lightPromises != null && lightPromises.containsKey(command)) {
-                CompletableFuture<Boolean> promise = lightPromises.get(command);
+            Map<String, CompletableFuture<Boolean>> doorPromises = pendingResponses.get(doorId);
+            if (doorPromises != null && doorPromises.containsKey(command)) {
+                CompletableFuture<Boolean> promise = doorPromises.get(command);
                 if ("accept".equals(result)) {
                     promise.complete(true);
                 } else {
@@ -212,9 +212,9 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 }
 
                 // Xóa promise đã hoàn thành
-                lightPromises.remove(command);
-                if (lightPromises.isEmpty()) {
-                    pendingResponses.remove(lightId);
+                doorPromises.remove(command);
+                if (doorPromises.isEmpty()) {
+                    pendingResponses.remove(doorId);
                 }
             }
         }
