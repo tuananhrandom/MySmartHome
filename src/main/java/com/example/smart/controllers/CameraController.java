@@ -1,6 +1,7 @@
 package com.example.smart.controllers;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,7 +26,7 @@ public class CameraController {
     CameraService cameraService;
 
     @GetMapping("/all")
-    public List<Camera> getAllLights() {
+    public List<Camera> getAllCameras() {
         return cameraService.getAllCamera();
     }
 
@@ -41,10 +42,27 @@ public class CameraController {
 
         return new ResponseEntity<>("Created", HttpStatus.OK);
     }
+
     @DeleteMapping("/user/delete")
     public ResponseEntity<?> UserRemoveCamera(@RequestParam Long cameraId, @RequestParam Long userId) {
         cameraService.userRemoveCamera(cameraId, userId);
         return new ResponseEntity<>("Deleted", HttpStatus.OK);
+    }
+
+    // người dùng thêm quyền sở hữu một đèn mới và đèn này sẽ được hiển thị trong
+    // dashboard của họ.
+    @PostMapping("/newcamera")
+    public ResponseEntity<?> userAddNewcamera(
+            @RequestParam Long userId,
+            @RequestBody Map<String, Object> request) {
+        System.out.println("request: " + request);
+
+        String cameraName = (String) request.get("cameraName");
+        Long cameraId = ((Number) request.get("cameraId")).longValue(); // Chuyển Object về Long
+
+        cameraService.userAddcamera(cameraId, userId, cameraName);
+
+        return new ResponseEntity<>(cameraId, HttpStatus.CREATED);
     }
 
 }

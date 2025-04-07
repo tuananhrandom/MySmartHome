@@ -84,6 +84,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 handleCameraAuth(session, payload);
             } else if (payload.startsWith("user:")) {
                 handleViewerAuth(session, payload);
+            } else if (payload.startsWith("response:")) {
+                // xử lý cấp mới người dùng trong ESP32
+                handleEspResponse(payload);
             } else {
                 session.sendMessage(new TextMessage("invalid_format"));
                 session.close(CloseStatus.BAD_DATA);
@@ -98,8 +101,10 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             logger.warning("Lỗi trong handleTextMessage: " + e.getMessage());
         }
     }
-// gửi yêu cầu cấp mới user và đợi phản hồi từ ESP32
+
+    // gửi yêu cầu cấp mới user và đợi phản hồi từ ESP32
     private void handleCameraAuth(WebSocketSession session, String payload) throws Exception {
+        // camera:1:0:192.168.1.26:123412341
         try {
             if (payload.startsWith("response")) {
                 handleEspResponse(payload);
@@ -108,14 +113,14 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             if (parts.length <= 4)
                 throw new IllegalArgumentException("Invalid camera auth format");
 
-            Long cameraId = Long.parseLong(parts[0]);
-            Integer status = Integer.parseInt(parts[1]);
-            String ip = parts[2];
-            Long ownerId = Long.parseLong(parts[3]);
-            String token = parts[4];
+            Long cameraId = Long.parseLong(parts[1]);
+            Integer status = Integer.parseInt(parts[2]);
+            String ip = parts[3];
+            Long ownerId = Long.parseLong(parts[4]);
+            String token = parts[5];
 
             String secretKey = "12341234";
-            String expectedToken = secretKey + cameraId;
+            String expectedToken = secretKey + cameraId.toString();
 
             if (!expectedToken.equals(token)) {
                 session.sendMessage(new TextMessage("unauthorized_token"));
@@ -129,8 +134,20 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 session.close(CloseStatus.BAD_DATA);
                 return;
             }
+            // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.
+            Camera thisCamera = cameraService.getCameraById(cameraId);
+            if (thisCamera.getUser() != null && thisCamera.getUser().getUserId() != ownerId) {
+                sendControlSignal(cameraId, "ownerId:" + thisCamera.getUser().getUserId());
+                cameraService.updateCameraStatus(cameraId, status, ip, thisCamera.getUser().getUserId());
+            } else if (thisCamera.getUser() == null && ownerId != -1) {
+                sendControlSignal(cameraId, "ownerId:" + -1);
+                // CameraService.updateCameraStatus(CameraId, CameraStatus, CameraIp, null);
+            } else {
 
-            cameraService.updateCameraStatus(cameraId, status, ip, ownerId);
+                cameraService.updateCameraStatus(cameraId, status, ip, ownerId);
+            }
+
+            // cameraService.updateCameraStatus(cameraId, status, ip, ownerId);
             arduinoSessions.put(cameraId, session);
             authenticatedCameras.put(session, true);
             sessionToCameraId.put(session, cameraId);
@@ -197,7 +214,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
         } else {
             System.err.println("No active session found for Arduino ID: " + cameraId);
             // cameraService.updateCameraStatus(cameraId, null, null, null,
-            //         cameraService.findBycameraId(cameraId).getUser().getUserId());
+            // cameraService.findBycameraId(cameraId).getUser().getUserId());
         }
     }
 
@@ -240,30 +257,37 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
         }
     }
 
-     // Xử lý phản hồi thay đổi user từ ESP32
-     private void handleEspResponse(String payload) {
-        // Format: response:cameraId:command:result
-        // Ví dụ: response:123:ownerId:accept
+    // Xử lý phản hồi thay đổi user từ ESP32
+    private void handleEspResponse(String payload) {
+        System.out.println(payload);
+        // Format: response:cameraId:command:result:token
+        // Ví dụ: response:123:ownerId:accept:123412341
         String[] parts = payload.split(":");
         if (parts.length >= 4) {
             Long cameraId = Long.parseLong(parts[1]);
             String command = parts[2];
             String result = parts[3];
+            String token = parts[4];
+            String secretKey = "12341234";
+            String authToken = secretKey + cameraId.toString();
+            if (token.equals(authToken)) {
+                Map<String, CompletableFuture<Boolean>> cameraPromises = pendingResponses.get(cameraId);
+                if (cameraPromises != null && cameraPromises.containsKey(command)) {
+                    CompletableFuture<Boolean> promise = cameraPromises.get(command);
+                    if ("accept".equals(result)) {
+                        promise.complete(true);
+                    } else {
+                        promise.complete(false);
+                    }
 
-            Map<String, CompletableFuture<Boolean>> cameraPromises = pendingResponses.get(cameraId);
-            if (cameraPromises != null && cameraPromises.containsKey(command)) {
-                CompletableFuture<Boolean> promise = cameraPromises.get(command);
-                if ("accept".equals(result)) {
-                    promise.complete(true);
-                } else {
-                    promise.complete(false);
+                    // Xóa promise đã hoàn thành
+                    cameraPromises.remove(command);
+                    if (cameraPromises.isEmpty()) {
+                        pendingResponses.remove(cameraId);
+                    }
                 }
-
-                // Xóa promise đã hoàn thành
-                cameraPromises.remove(command);
-                if (cameraPromises.isEmpty()) {
-                    pendingResponses.remove(cameraId);
-                }
+            } else {
+                System.err.println("wrong token");
             }
         }
     }

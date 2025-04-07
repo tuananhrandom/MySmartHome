@@ -36,7 +36,7 @@ public class CameraService {
             throw new IllegalArgumentException("Camera not found");
         }
     }
-    
+
     public List<Camera> getAllCamera() {
         return cameraRepo.findAll();
     }
@@ -125,10 +125,55 @@ public class CameraService {
         }
     }
 
-    public void userDeleteLight(Long lightId, Long userId) {
+    public void userDeletecamera(Long cameraId, Long userId) {
         Camera thisCamera = cameraRepo.findById(userId).get();
         if (thisCamera != null) {
-            
+
+        }
+    }
+
+    public void userAddcamera(Long cameraId, Long userId, String cameraName) {
+        // Kiểm tra cameaa tồn tại và chưa có chủ sở hữu
+        if (cameraRepo.existsById(cameraId) && cameraRepo.findById(cameraId).get().getUser() == null) {
+            Camera thiscamera = cameraRepo.findById(cameraId).get();
+
+            try {
+                // Gửi yêu cầu thay đổi chủ sở hữu đến ESP32 và đợi phản hồi
+                CompletableFuture<Boolean> response = cameraSocketHandler.sendControlSignalWithResponse(cameraId,
+                        "ownerId:" + userId, "ownerId");
+
+                // Đợi kết quả từ ESP32 (với timeout 10 giây đã được xử lý trong phương thức)
+                boolean accepted = response.get(); // Sẽ chờ tối đa 10 giây
+
+                if (accepted) {
+                    // Nếu ESP32 chấp nhận, lưu thông tin vào database
+                    thiscamera.setUser(userRepo.findById(userId).get());
+                    thiscamera.setCameraName(cameraName);
+                    cameraRepo.save(thiscamera);
+
+                    // Thông báo đến client
+                    if (clientWebSocketHandler != null) {
+                        clientWebSocketHandler.notifyCameraUpdate(thiscamera);
+                    }
+
+                    System.out.println("ESP32 accepted ownership change for camera: " + cameraId);
+                } else {
+                    // Nếu ESP32 từ chối hoặc timeout
+                    throw new IllegalStateException("ESP32 rejected ownership change or did not respond");
+                }
+            } catch (Exception e) {
+                // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
+                throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
+            }
+            // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên đèn thôi
+        } else if (cameraRepo.existsById(cameraId)
+                && cameraRepo.findById(cameraId).get().getUser().getUserId() == userId) {
+            Camera thiscamera = cameraRepo.findById(cameraId).get();
+            thiscamera.setCameraName(cameraName);
+            cameraRepo.save(thiscamera);
+            clientWebSocketHandler.notifyCameraUpdate(thiscamera);
+        } else {
+            throw new IllegalStateException("camera already been Used");
         }
     }
 }
