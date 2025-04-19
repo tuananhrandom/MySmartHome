@@ -14,18 +14,17 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.example.smart.entities.Camera;
 import com.example.smart.entities.Door;
 import com.example.smart.entities.Light;
+import com.example.smart.entities.Notification;
 import com.example.smart.security.JwtService;
-import com.example.smart.services.LightServicesImp;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class ClientWebSocketHandler extends TextWebSocketHandler {
+    @Autowired
+    private ObjectMapper mapper;
 
     @Autowired
     private JwtService jwtService;
-
-    @Autowired
-    private LightServicesImp lightService;
 
     // Map để lưu trữ session theo userId - mỗi user có thể có nhiều session (nhiều
     // tab)
@@ -66,7 +65,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
     public void sendDeviceUpdateToUser(Long userId, Object deviceData, String eventType) {
         Map<String, WebSocketSession> sessions = userSessions.get(userId);
         if (sessions != null) {
-            ObjectMapper mapper = new ObjectMapper();
+            // ObjectMapper mapper = new ObjectMapper();
             try {
                 // Tạo JSON với type và data
                 String json = mapper.writeValueAsString(Map.of(
@@ -110,6 +109,14 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    public void notifyNotificationUpdate(Notification notification) {
+        System.out.println("đang gửi thông báo đến frontend");
+        if (notification.getUser() != null) {
+            Long actorId = notification.getUser().getUserId();
+            sendDeviceUpdateToUser(actorId, notification, "notification-update");
+        }
+    }
+
     private String extractTokenFromSession(WebSocketSession session) {
         String query = session.getUri().getQuery();
         if (query != null && query.startsWith("token=")) {
@@ -122,7 +129,7 @@ public class ClientWebSocketHandler extends TextWebSocketHandler {
         userSessions.computeIfAbsent(userId, k -> new ConcurrentHashMap<>())
                 .put(session.getId(), session);
     }
-    
+
     private void removeUserSession(Long userId, WebSocketSession session) {
         Map<String, WebSocketSession> sessions = userSessions.get(userId);
         if (sessions != null) {

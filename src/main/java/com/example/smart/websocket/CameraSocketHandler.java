@@ -1,8 +1,5 @@
 package com.example.smart.websocket;
 
-import org.bytedeco.javacv.FFmpegFrameRecorder;
-import org.bytedeco.javacv.Frame;
-import org.bytedeco.javacv.Java2DFrameConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
@@ -15,15 +12,11 @@ import com.example.smart.services.CameraService;
 
 import org.springframework.web.socket.TextMessage;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
-import java.util.logging.Level;
+
 import java.util.logging.Logger;
 
 @Component

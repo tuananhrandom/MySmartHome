@@ -25,6 +25,8 @@ public class LightServicesImp implements LightServices {
 
     @Autowired(required = false)
     private com.example.smart.websocket.ClientWebSocketHandler clientWebSocketHandler;
+    @Autowired
+    NotificationService notificationService;
 
     @Override
     public List<Light> getAllLight() {
@@ -63,6 +65,18 @@ public class LightServicesImp implements LightServices {
             clientWebSocketHandler.notifyLightUpdate(selectedLight);
         } else {
 
+        }
+        // xử lý gửi thông báo
+        String notiTitle = "Light: " + selectedLight.getLightName();
+        if (selectedLight.getLightStatus() == 1) {
+            String notiContent = "Light Turned On";
+            notificationService.createNotification("Light", notiTitle, notiContent,
+                    ownerId);
+
+        } else {
+            String notiContent = "Light Turned Off";
+            notificationService.createNotification("Light", notiTitle, notiContent,
+                    ownerId);
         }
     }
 
@@ -186,6 +200,17 @@ public class LightServicesImp implements LightServices {
             selectedLight.setLightStatus(1 - selectedLight.getLightStatus());
             lightRepo.save(selectedLight);
             clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            // xử lý gửi thông báo
+            String notiTitle = "Light: " + selectedLight.getLightName();
+            if (selectedLight.getLightStatus() == 1) {
+                String notiContent = "Light Turned On";
+                notificationService.createNotification("Light", notiTitle, notiContent, ownerId);
+
+            } else {
+                String notiContent = "Light Turned Off";
+                notificationService.createNotification("Light", notiTitle, notiContent, ownerId);
+            }
+            // gửi lệnh điều khiển về light ESP32
             try {
                 lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + selectedLight.getLightStatus());
             } catch (Exception e) {

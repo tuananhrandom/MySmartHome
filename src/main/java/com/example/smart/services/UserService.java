@@ -13,4 +13,5 @@ public interface UserService extends UserDetailsService {
     AuthResponse authenticate(AuthRequest request);
 
     User getCurrentUser();
+
 }

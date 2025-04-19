@@ -33,6 +33,11 @@ public class NotificationController {
         return notificationServiceImp.getAllNotifications();
     }
 
+    @GetMapping("/{userId}")
+    public List<Notification> getAllNotificationByUserId(@PathVariable Long userId) {
+        return notificationServiceImp.getUserNotifications(userId);
+    }
+
     @DeleteMapping("/delete/all")
     public ResponseEntity<?> deleteAllLight() {
         notificationServiceImp.deleteAllNotification();
@@ -43,17 +48,6 @@ public class NotificationController {
     public ResponseEntity<?> deleteNotificationById(@PathVariable Long id) {
         notificationServiceImp.deleteNotification(id);
         return new ResponseEntity<>("Delete Done", HttpStatus.OK);
-    }
-
-    @PostMapping("/new")
-    public ResponseEntity<?> newNotification(@RequestBody Notification notification) {
-        notificationServiceImp.createNotification(notification);
-        return new ResponseEntity<>("Done", HttpStatus.OK);
-    }
-
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamNotifications() {
-        return notificationServiceImp.createSseEmitter();
     }
 
 }
