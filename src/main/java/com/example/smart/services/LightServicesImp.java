@@ -16,6 +16,8 @@ import com.example.smart.websocket.LightSocketHandler;
 @Service
 public class LightServicesImp implements LightServices {
     @Autowired
+    DeviceActivityService deviceActivityService;
+    @Autowired
     LightSocketHandler lightSocketHandler;
     @Autowired
     LightRepositories lightRepo;
@@ -48,7 +50,7 @@ public class LightServicesImp implements LightServices {
     public void updateLightStatus(Long lightId, Integer lightStatus, String lightIp, Long ownerId) {
         Light selectedLight = lightRepo.findById(lightId)
                 .orElseThrow(() -> new IllegalArgumentException("Light not found with ID: " + lightId));
-
+        Integer previousStatus = selectedLight.getLightStatus();
         selectedLight.setLightStatus(lightStatus);
         selectedLight.setLightIp(lightIp);
         if (ownerId == -1) {
@@ -59,24 +61,17 @@ public class LightServicesImp implements LightServices {
 
         // Lưu thay đổi vào database
         lightRepo.save(selectedLight);
+        // lưu log thiết bị
+         // Ghi nhận hoạt động
+         String activityType = lightStatus == 1 ? "ON" : "OFF";
+         
+         deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
 
         // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
         if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
             clientWebSocketHandler.notifyLightUpdate(selectedLight);
         } else {
 
-        }
-        // xử lý gửi thông báo
-        String notiTitle = "Light: " + selectedLight.getLightName();
-        if (selectedLight.getLightStatus() == 1) {
-            String notiContent = "Light Turned On";
-            notificationService.createNotification("Light", notiTitle, notiContent,
-                    ownerId);
-
-        } else {
-            String notiContent = "Light Turned Off";
-            notificationService.createNotification("Light", notiTitle, notiContent,
-                    ownerId);
         }
     }
 
@@ -197,25 +192,22 @@ public class LightServicesImp implements LightServices {
     public void toggleLight(Long lightId, Long ownerId) {
         Light selectedLight = lightRepo.findById(lightId).get();
         if (selectedLight != null && selectedLight.getUser().getUserId() == ownerId) {
-            selectedLight.setLightStatus(1 - selectedLight.getLightStatus());
+            Integer previousStatus = selectedLight.getLightStatus();
+            Integer lightStatus = 1 - previousStatus;
+            selectedLight.setLightStatus(lightStatus);
             lightRepo.save(selectedLight);
             clientWebSocketHandler.notifyLightUpdate(selectedLight);
-            // xử lý gửi thông báo
-            String notiTitle = "Light: " + selectedLight.getLightName();
-            if (selectedLight.getLightStatus() == 1) {
-                String notiContent = "Light Turned On";
-                notificationService.createNotification("Light", notiTitle, notiContent, ownerId);
-
-            } else {
-                String notiContent = "Light Turned Off";
-                notificationService.createNotification("Light", notiTitle, notiContent, ownerId);
-            }
             // gửi lệnh điều khiển về light ESP32
             try {
                 lightSocketHandler.sendControlSignal(lightId, "lightStatus:" + selectedLight.getLightStatus());
             } catch (Exception e) {
                 throw new IllegalArgumentException("Light not found");
             }
+            // tạo log 
+             // Ghi nhận hoạt động
+            String activityType = lightStatus == 1 ? "ON" : "OFF";
+            String lightIp = selectedLight.getLightIp();
+            deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
         }
     }
 
