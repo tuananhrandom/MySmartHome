@@ -30,6 +30,8 @@ public class Notification {
     Long notificationId;
     @Column(name = "notificationtype", nullable = false)
     private String notificationType;
+    @Column(name = "objectid", nullable = false)
+    private Long objectId;
     @Column(name = "notificationtitle", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String notificationTitle;
     @Column(name = "notificationcontent", nullable = false, columnDefinition = "NVARCHAR(MAX)")
