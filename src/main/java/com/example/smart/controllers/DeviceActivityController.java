@@ -38,7 +38,8 @@ public class DeviceActivityController {
     }
 
     @GetMapping("/device")
-    // @PreAuthorize("hasAuthority('USER') or @userService.isCurrentUserOwnerOfDevice(#deviceType, #deviceId)")
+    // @PreAuthorize("hasAuthority('USER') or
+    // @userService.isCurrentUserOwnerOfDevice(#deviceType, #deviceId)")
     public ResponseEntity<List<DeviceActivity>> getActivitiesByDevice(
             @RequestParam String deviceType,
             @RequestParam Long deviceId) {
@@ -46,17 +47,15 @@ public class DeviceActivityController {
     }
 
     @GetMapping("/time-range")
-    @PreAuthorize("hasAuthority('USER') or @userService.isCurrentUser(#userId)")
+    // @PreAuthorize("hasAuthority('USER') or @userService.isCurrentUser(#userId)")
     public ResponseEntity<List<DeviceActivity>> getActivitiesByTimeRange(
+            @RequestParam String deviceType,
+            @RequestParam Long deviceId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(required = false) Long userId) {
-        
-        if (userId != null) {
-            return ResponseEntity.ok(deviceActivityService.getActivitiesByTimeRange(startTime, endTime));
-        }
-        
-        return ResponseEntity.ok(deviceActivityService.getActivitiesByTimeRange(startTime, endTime));
+        return ResponseEntity
+                .ok(deviceActivityService.getActivitiesByTimeRange(deviceType, deviceId, startTime, endTime));
     }
 
     @DeleteMapping("/cleanup")

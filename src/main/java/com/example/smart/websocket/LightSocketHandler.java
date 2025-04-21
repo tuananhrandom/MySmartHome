@@ -13,12 +13,16 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.example.smart.entities.Light;
+import com.example.smart.services.DeviceActivityService;
 import com.example.smart.services.LightServicesImp;
 
 @Component
 public class LightSocketHandler extends TextWebSocketHandler {
+    boolean isConnected = false;
     @Autowired
     LightServicesImp lightService;
+    @Autowired
+    DeviceActivityService deviceActivityService;
 
     // Map to store WebSocket sessions with Arduino IDs as keys
     private Map<Long, WebSocketSession> arduinoSessions = new ConcurrentHashMap<>();
@@ -29,6 +33,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("a Light Connected");
+
     }
 
     @Override
@@ -49,8 +54,13 @@ public class LightSocketHandler extends TextWebSocketHandler {
             // Cập nhật lightIp và lightStatus thành null khi mất kết nối
             lightService.updateLightStatus(disconnectedLightId, null, null,
                     lightService.findByLightId(disconnectedLightId).getUser().getUserId());
+
+            // ghi log thiết bị đã bị mất kết nối
+            deviceActivityService.logLightActivity(disconnectedLightId, "DISCONNECT", null, null, null,
+                    lightService.findByLightId(disconnectedLightId).getUser().getUserId());
             System.out.println(
                     "Connection closed for Light ID: " + disconnectedLightId + ". Light status and IP set to null.");
+            isConnected = false;
         }
     }
 
@@ -75,6 +85,12 @@ public class LightSocketHandler extends TextWebSocketHandler {
         if (handleArduinoMessage(session, lightId, lightStatus, lightIp, ownerId, arduinoToken)) {
             // arduinoSessions.put(lightId, session);
             session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + lightId));
+            if (!isConnected) {
+                // cập nhật Log trước khi chuyển trạng thái
+                deviceActivityService.logLightActivity(lightId, "CONNECT", null, null, lightIp, ownerId);
+                isConnected = true;
+            }
+
         }
     }
 
@@ -188,6 +204,10 @@ public class LightSocketHandler extends TextWebSocketHandler {
             System.err.println("No active session found for Arduino ID: " + lightId);
             lightService.updateLightStatus(lightId, null, null,
                     lightService.getLightById(lightId).getUser().getUserId());
+            // ghi log thiết bị đã bị mất kết nối
+            deviceActivityService.logLightActivity(lightId, "DISCONNECT", null, null, null,
+                    lightService.findByLightId(lightId).getUser().getUserId());
+            isConnected = false;
             // lightService.updateLightStatus(lightId, null, null,
             // lightService.findByLightId(lightId).getUser().getUserId());
             // lightService.updateLightStatus(lightId, null, null);

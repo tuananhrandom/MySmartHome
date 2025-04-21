@@ -45,30 +45,32 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
 
     @Override
     public List<DeviceActivity> getActivitiesByDeviceTypeAndId(String deviceType, Long deviceId) {
-        return deviceActivityRepository.findByDeviceTypeAndDeviceId(deviceType, deviceId);
+        return deviceActivityRepository.findByDeviceTypeAndDeviceIdOrderByActivityTimeDesc(deviceType, deviceId);
     }
 
     @Override
-    public List<DeviceActivity> getActivitiesByTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
-        return deviceActivityRepository.findByActivityTimeBetween(startTime, endTime);
+    public List<DeviceActivity> getActivitiesByTimeRange(String deviceType, Long deviceId, LocalDateTime startTime,
+            LocalDateTime endTime) {
+        return deviceActivityRepository.findByDeviceTypeAndDeviceIdAndActivityTimeBetweenOrderByActivityTimeDesc(
+                deviceType, deviceId, startTime, endTime);
     }
 
     @Override
     public void logLightActivity(Long lightId, String activityType, Integer previousStatus, Integer currentStatus,
             String lightIp, Long userId) {
-        
+
         DeviceActivity activity = new DeviceActivity();
         activity.setDeviceType("LIGHT");
         activity.setDeviceId(lightId);
         activity.setActivityType(activityType);
         activity.setPreviousState(previousStatus != null ? previousStatus.toString() : null);
         activity.setCurrentState(currentStatus != null ? currentStatus.toString() : null);
-        activity.setIpAddress(lightIp);
+        activity.setIpAddress(lightIp != null ? lightIp : null);
         activity.setActivityTime(LocalDateTime.now());
-        
+
         // Thêm thông tin mô tả dựa trên hoạt động
         String description = "";
-        switch(activityType) {
+        switch (activityType) {
             case "ON":
                 description = "Đèn đã được bật";
                 break;
@@ -85,7 +87,7 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 description = "Hoạt động khác của đèn";
         }
         activity.setDescription(description);
-        
+
         // Lấy tên thiết bị và người dùng
         if (lightId != null) {
             Light light = lightRepositories.findById(lightId).orElse(null);
@@ -93,12 +95,12 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 activity.setDeviceName(light.getLightName());
             }
         }
-        
+
         if (userId != null) {
             User user = userRepository.findById(userId).orElse(null);
             activity.setUser(user);
         }
-        
+
         deviceActivityRepository.save(activity);
     }
 
@@ -106,26 +108,26 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
     public void logDoorActivity(Long doorId, String activityType, Integer previousStatus, Integer currentStatus,
             Integer previousLockDown, Integer currentLockDown, Integer previousAlert, Integer currentAlert,
             String doorIp, Long userId) {
-        
+
         DeviceActivity activity = new DeviceActivity();
         activity.setDeviceType("DOOR");
         activity.setDeviceId(doorId);
         activity.setActivityType(activityType);
-        
+
         // Tạo trạng thái dưới dạng chuỗi JSON để lưu nhiều thông tin
-        String prevState = String.format("{\"status\":%s, \"lockDown\":%s, \"alert\":%s}", 
+        String prevState = String.format("{\"status\":%s, \"lockDown\":%s, \"alert\":%s}",
                 previousStatus, previousLockDown, previousAlert);
-        String currState = String.format("{\"status\":%s, \"lockDown\":%s, \"alert\":%s}", 
+        String currState = String.format("{\"status\":%s, \"lockDown\":%s, \"alert\":%s}",
                 currentStatus, currentLockDown, currentAlert);
-        
+
         activity.setPreviousState(prevState);
         activity.setCurrentState(currState);
         activity.setIpAddress(doorIp);
         activity.setActivityTime(LocalDateTime.now());
-        
+
         // Thêm thông tin mô tả dựa trên hoạt động
         String description = "";
-        switch(activityType) {
+        switch (activityType) {
             case "OPEN":
                 description = "Cửa đã được mở";
                 break;
@@ -148,7 +150,7 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 description = "Hoạt động khác của cửa";
         }
         activity.setDescription(description);
-        
+
         // Lấy tên thiết bị và người dùng
         if (doorId != null) {
             Door door = doorRepositories.findById(doorId).orElse(null);
@@ -156,19 +158,19 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 activity.setDeviceName(door.getDoorName());
             }
         }
-        
+
         if (userId != null) {
             User user = userRepository.findById(userId).orElse(null);
             activity.setUser(user);
         }
-        
+
         deviceActivityRepository.save(activity);
     }
 
     @Override
     public void logCameraActivity(Long cameraId, String activityType, Integer previousStatus, Integer currentStatus,
             String cameraIp, Long userId) {
-        
+
         DeviceActivity activity = new DeviceActivity();
         activity.setDeviceType("CAMERA");
         activity.setDeviceId(cameraId);
@@ -177,10 +179,10 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
         activity.setCurrentState(currentStatus != null ? currentStatus.toString() : null);
         activity.setIpAddress(cameraIp);
         activity.setActivityTime(LocalDateTime.now());
-        
+
         // Thêm thông tin mô tả dựa trên hoạt động
         String description = "";
-        switch(activityType) {
+        switch (activityType) {
             case "STREAM_START":
                 description = "Camera bắt đầu truyền dữ liệu";
                 break;
@@ -197,7 +199,7 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 description = "Hoạt động khác của camera";
         }
         activity.setDescription(description);
-        
+
         // Lấy tên thiết bị và người dùng
         if (cameraId != null) {
             Camera camera = cameraRepositories.findById(cameraId).orElse(null);
@@ -205,12 +207,12 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
                 activity.setDeviceName(camera.getCameraName());
             }
         }
-        
+
         if (userId != null) {
             User user = userRepository.findById(userId).orElse(null);
             activity.setUser(user);
         }
-        
+
         deviceActivityRepository.save(activity);
     }
 
