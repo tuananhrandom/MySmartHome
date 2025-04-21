@@ -13,11 +13,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.example.smart.DTO.AuthRequest;
 import com.example.smart.DTO.AuthResponse;
+import com.example.smart.DTO.ChangePasswordRequest;
 import com.example.smart.DTO.RegisterRequest;
 import com.example.smart.entities.Role;
 import com.example.smart.entities.User;
 import com.example.smart.repositories.UserRepository;
 import com.example.smart.security.JwtService;
+import com.example.smart.utils.PasswordGenerator;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -26,13 +28,16 @@ public class UserServiceImpl implements UserService {
         private final PasswordEncoder passwordEncoder;
         private final JwtService jwtService;
         private AuthenticationManager authenticationManager;
+        private final EmailService emailService;
 
         public UserServiceImpl(UserRepository userRepository,
                         PasswordEncoder passwordEncoder,
-                        JwtService jwtService) {
+                        JwtService jwtService,
+                        EmailService emailService) {
                 this.userRepository = userRepository;
                 this.passwordEncoder = passwordEncoder;
                 this.jwtService = jwtService;
+                this.emailService = emailService;
         }
 
         @Autowired
@@ -107,5 +112,49 @@ public class UserServiceImpl implements UserService {
                 String username = authentication.getName();
                 return userRepository.findByUsername(username)
                                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng hiện tại"));
+        }
+        
+        @Override
+        public boolean changePassword(ChangePasswordRequest request) {
+                // Lấy thông tin người dùng hiện tại
+                User currentUser = getCurrentUser();
+                
+                // Kiểm tra mật khẩu cũ có khớp không
+                if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
+                        throw new RuntimeException("Mật khẩu cũ không chính xác");
+                }
+                
+                // Đặt mật khẩu mới đã được mã hóa
+                currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
+                
+                // Lưu thông tin người dùng với mật khẩu mới
+                userRepository.save(currentUser);
+                
+                return true;
+        }
+
+        @Override
+        public boolean resetPassword(String email) {
+                // Tìm user theo email
+                User user = userRepository.findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
+                
+                // Tạo mật khẩu mới ngẫu nhiên 8 ký tự
+                String newPassword = PasswordGenerator.generateRandomPassword(8);
+                
+                // Cập nhật mật khẩu mới trong database (đã mã hóa)
+                user.setPassword(passwordEncoder.encode(newPassword));
+                userRepository.save(user);
+                
+                // Gửi email chứa mật khẩu mới
+                String subject = "Đặt lại mật khẩu cho tài khoản Smart Home";
+                String body = "Xin chào " + user.getFullName() + ",\n\n"
+                            + "Mật khẩu mới của bạn là: " + newPassword + "\n\n"
+                            + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được email này.\n\n"
+                            + "Trân trọng,\nĐội ngũ Smart Home";
+                
+                emailService.sendEmail(email, subject, body);
+                
+                return true;
         }
 }

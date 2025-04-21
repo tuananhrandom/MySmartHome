@@ -10,10 +10,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smart.DTO.AuthRequest;
 import com.example.smart.DTO.AuthResponse;
+import com.example.smart.DTO.ChangePasswordRequest;
 import com.example.smart.DTO.RegisterRequest;
 import com.example.smart.entities.User;
 import com.example.smart.services.UserService;
@@ -64,4 +66,42 @@ public class AuthController {
         return ResponseEntity.ok(userService.getCurrentUser());
     }
     
+    // đổi mật khẩu
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, BindingResult result) {
+        // Nếu có lỗi validation, trả về danh sách lỗi
+        if (result.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            result.getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+
+        try {
+            boolean success = userService.changePassword(request);
+            if (success) {
+                Map<String, String> response = new HashMap<>();
+                response.put("message", "Đổi mật khẩu thành công");
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.badRequest().body("Đổi mật khẩu thất bại");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    @PostMapping("/forget")
+    public ResponseEntity<?> handleForgetPassword(@RequestParam String email) {
+        try {
+            boolean success = userService.resetPassword(email);
+            if (success) {
+                Map<String, String> response = new HashMap<>();
+                response.put("message", "Mật khẩu mới đã được gửi tới email của bạn");
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.badRequest().body("Không thể đặt lại mật khẩu");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
