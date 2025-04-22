@@ -9,6 +9,7 @@ import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
 import com.example.smart.entities.Camera;
 import com.example.smart.services.CameraService;
+import com.example.smart.services.VideoRecordingService;
 
 import org.springframework.web.socket.TextMessage;
 
@@ -25,6 +26,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
     @Autowired
     private CameraService cameraService;
+
+    @Autowired
+    private VideoRecordingService videoRecordingService;
 
     private final Logger logger = Logger.getLogger(CameraSocketHandler.class.getName());
 
@@ -51,13 +55,28 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
         Long cameraId = sessionToCameraId.get(session);
         if (cameraId != null) {
-            broadcastToViewers(cameraId, message.getPayload().array());
+            byte[] data = message.getPayload().array();
+
+            // Gửi dữ liệu đến người xem
+            broadcastToViewers(cameraId, data);
+
+            // Gửi frame đến video recording service để ghi lại
+            // videoRecordingService.handleFrame(cameraId, data);
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         logger.info("WebSocket disconnected: " + session.getId());
+
+        // Lấy camera ID trước khi xóa mapping
+        Long cameraId = sessionToCameraId.get(session);
+
+        // Nếu là session của camera, kết thúc ghi video
+        // if (authenticatedCameras.getOrDefault(session, false) && cameraId != null) {
+        // videoRecordingService.finishRecording(cameraId, "connection_closed");
+        // }
+
         authenticatedCameras.remove(session);
         authenticatedViewers.remove(session);
         sessionToCameraId.remove(session);
@@ -66,6 +85,33 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
         viewerSessions.values().forEach(set -> set.remove(session));
         arduinoSessions.values().removeIf(s -> s.equals(session));
     }
+
+    // @Override
+    // public void afterConnectionClosed(WebSocketSession session, CloseStatus
+    // status) {
+    // logger.info("WebSocket disconnected: " + session.getId());
+
+    // // Lấy camera ID trước khi xóa mapping
+    // Long cameraId = sessionToCameraId.get(session);
+
+    // // Thêm delay nhỏ để đảm bảo recorder có thời gian khởi tạo nếu mới tạo
+    // if (authenticatedCameras.getOrDefault(session, false) && cameraId != null) {
+    // try {
+    // // Đợi 2 giây để đảm bảo mọi thứ được tạo xong
+    // // Thread.sleep(2000);
+    // // videoRecordingService.finishRecording(cameraId, "connection_closed");
+    // } catch (Exception e) {
+    // logger.warning("Lỗi khi kết thúc recording: " + e.getMessage());
+    // }
+    // }
+
+    // // Clean up các mapping
+    // authenticatedCameras.remove(session);
+    // authenticatedViewers.remove(session);
+    // sessionToCameraId.remove(session);
+    // viewerSessions.values().forEach(set -> set.remove(session));
+    // arduinoSessions.values().removeIf(s -> s.equals(session));
+    // }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {

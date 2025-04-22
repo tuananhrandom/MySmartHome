@@ -21,6 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class DoorServicesImp implements DoorServices {
     @Autowired
+    DeviceActivityService deviceActivityService;
+    @Autowired
     DoorRepositories doorRepo;
     @Autowired
     UserRepository userRepo;
@@ -57,10 +59,13 @@ public class DoorServicesImp implements DoorServices {
 
     }
 
+    // update từ ESP32
     @Override
     public void updateDoorStatus(Long doorId, Integer doorStatus, Integer doorLockDown, String doorIp, Long ownerId) {
         Door selectedDoor = doorRepo.findById(doorId)
                 .orElseThrow(() -> new IllegalArgumentException("Door not found"));
+        Integer oldStatus = selectedDoor.getDoorStatus();
+        Integer oldAlarmStatus = selectedDoor.getDoorLockDown();
         selectedDoor.setDoorStatus(doorStatus);
         selectedDoor.setDoorIp(doorIp);
         selectedDoor.setDoorLockDown(doorLockDown);
@@ -78,6 +83,18 @@ public class DoorServicesImp implements DoorServices {
             clientWebSocketHandler.notifyDoorUpdate(selectedDoor);
         } else {
 
+        }
+        // lưu log
+        if (doorStatus != oldStatus) {
+            String activityType = doorStatus == 1 ? "CLOSE" : "OPEN";
+            deviceActivityService.logDoorActivity(doorId, activityType, oldStatus, doorStatus, null,
+                    null,
+                    null, null, doorIp, ownerId);
+        } else if (doorLockDown != oldAlarmStatus) {
+            String activityType = doorLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
+            deviceActivityService.logDoorActivity(doorId, activityType, null, null, oldAlarmStatus,
+                    doorLockDown,
+                    null, null, doorIp, ownerId);
         }
     }
 
@@ -138,10 +155,18 @@ public class DoorServicesImp implements DoorServices {
         Door thisDoor = doorRepo.findById(doorId).orElseThrow(() -> new IllegalArgumentException("Door not found"));
         if (thisDoor.getUser() != null && thisDoor.getUser().getUserId() == userId) {
             thisDoor.setDoorLockDown(thisDoor.getDoorLockDown() == 1 ? 0 : 1);
+            Integer doorLockDown = thisDoor.getDoorLockDown();
+            String doorIp = thisDoor.getDoorIp();
+            Long ownerId = thisDoor.getOwnerId();
             doorRepo.save(thisDoor);
             try {
                 doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + thisDoor.getDoorLockDown());
                 clientWebSocketHandler.notifyDoorUpdate(thisDoor);
+                // lưu log
+                String activityType = doorLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
+                deviceActivityService.logDoorActivity(doorId, activityType, null, null, null,
+                        null,
+                        null, null, doorIp, ownerId);
             } catch (Exception e) {
                 throw new RuntimeException("Can't send control signal to door");
             }

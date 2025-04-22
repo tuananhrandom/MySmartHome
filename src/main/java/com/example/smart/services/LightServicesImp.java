@@ -62,10 +62,10 @@ public class LightServicesImp implements LightServices {
         // Lưu thay đổi vào database
         lightRepo.save(selectedLight);
         // lưu log thiết bị
-         // Ghi nhận hoạt động
-         String activityType = lightStatus == 1 ? "ON" : "OFF";
-         
-         deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
+        // Ghi nhận hoạt động
+        String activityType = lightStatus == 1 ? "ON" : "OFF";
+
+        deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
 
         // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
         if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
@@ -203,11 +203,13 @@ public class LightServicesImp implements LightServices {
             } catch (Exception e) {
                 throw new IllegalArgumentException("Light not found");
             }
-            // tạo log 
-             // Ghi nhận hoạt động
-            String activityType = lightStatus == 1 ? "ON" : "OFF";
-            String lightIp = selectedLight.getLightIp();
-            deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
+            // tạo log
+            // Ghi nhận hoạt động
+            // String activityType = lightStatus == 1 ? "ON" : "OFF";
+            // String lightIp = selectedLight.getLightIp();
+            // deviceActivityService.logLightActivity(lightId, activityType, previousStatus,
+            // lightStatus, lightIp,
+            // ownerId);
         }
     }
 
