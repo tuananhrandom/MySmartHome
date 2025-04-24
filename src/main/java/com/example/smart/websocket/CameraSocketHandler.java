@@ -14,6 +14,7 @@ import com.example.smart.services.VideoRecordingService;
 import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -61,7 +62,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             broadcastToViewers(cameraId, data);
 
             // Gửi frame đến video recording service để ghi lại
-            // videoRecordingService.handleFrame(cameraId, data);
+            videoRecordingService.handleFrame(cameraId, data);
         }
     }
 
@@ -71,11 +72,13 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
         // Lấy camera ID trước khi xóa mapping
         Long cameraId = sessionToCameraId.get(session);
-
-        // Nếu là session của camera, kết thúc ghi video
-        // if (authenticatedCameras.getOrDefault(session, false) && cameraId != null) {
-        // videoRecordingService.finishRecording(cameraId, "connection_closed");
+        // chạy hàm lưu video
+        // if (cameraId != null) {
+        // System.out.println("CONNECTION LOST CALL EMERGENCY");
+        // videoRecordingService.saveVideoEmergency(cameraId);
         // }
+        // cập nhật lại tình hình camera trên frontend
+        cameraService.updateCameraStatus(cameraId, 0, null, cameraService.findById(cameraId).getUser().getUserId());
 
         authenticatedCameras.remove(session);
         authenticatedViewers.remove(session);

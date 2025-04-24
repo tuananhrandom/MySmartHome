@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @Entity
 @Getter
 @Setter
@@ -24,10 +26,10 @@ public class CameraRecording {
 
     @Column(name = "file_path", nullable = false)
     private String filePath;
-
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
-
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     @Column(name = "end_time", nullable = false)
     private LocalDateTime endTime;
 

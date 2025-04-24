@@ -1,117 +1,216 @@
 package com.example.smart.services;
 
-import com.example.smart.entities.Camera;
-import com.example.smart.entities.CameraRecording;
-import com.example.smart.repositories.CameraRecordingRepository;
-
-import org.bytedeco.ffmpeg.global.avcodec;
-import org.bytedeco.javacv.FFmpegFrameRecorder;
-// import org.bytedeco.javacv.FFmpegFrameRecorder;
-import org.bytedeco.javacv.Frame;
-import org.bytedeco.javacv.Java2DFrameConverter;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import java.awt.image.*;
-import java.io.ByteArrayInputStream;
-
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
-import javax.imageio.ImageIO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
-
-import com.example.smart.utils.FFmpegVideoRecorder;
+import com.example.smart.entities.Camera;
+import com.example.smart.entities.CameraRecording;
+import com.example.smart.repositories.CameraRecordingRepository;
+import com.example.smart.repositories.CameraRepositories;
 
 @Service
 public class VideoRecordingService {
-    private static class RecordingWorker implements Runnable {
-        private final Long cameraId;
-        private final BlockingQueue<byte[]> queue;
-        private final FFmpegFrameRecorder recorder;
-        private final Java2DFrameConverter converter = new Java2DFrameConverter();
-        private volatile boolean running = true;
+    @Autowired
+    private CameraRecordingRepository cameraRecordingRepository;
+    @Autowired
+    private CameraRepositories cameraRepository;
 
-        public RecordingWorker(Long cameraId, String outputFile) throws Exception {
-            this.cameraId = cameraId;
-            this.queue = new LinkedBlockingQueue<>();
-            this.recorder = new FFmpegFrameRecorder(outputFile, 640, 480);
-            recorder.setVideoCodec(avcodec.AV_CODEC_ID_H264);
-            recorder.setFormat("mp4");
-            recorder.setFrameRate(25);
-            recorder.start();
+    private final Map<Long, LocalDateTime> videoStartTimes = new ConcurrentHashMap<>();
+    private final Path baseDir = Paths.get("video_frames");
+    private final Map<Long, Integer> frameCounters = new ConcurrentHashMap<>();
+
+    public VideoRecordingService() {
+        try {
+            Files.createDirectories(baseDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể tạo thư mục lưu ảnh video", e);
         }
+    }
 
-        public void addFrame(byte[] jpegData) {
-            queue.offer(jpegData);
+    public void handleFrame(Long cameraId, byte[] data) {
+        try {
+            Path cameraDir = baseDir.resolve("camera_" + cameraId);
+            Files.createDirectories(cameraDir);
+
+            // if (frameNumber == 0) {
+            // videoStartTimes.put(cameraId, LocalDateTime.now());
+            // }
+            // Kiểm tra nếu file frame_00000.jpg không tồn tại => reset
+            Path firstFramePath = cameraDir.resolve("frame_00000.jpg");
+            if (!Files.exists(firstFramePath)) {
+                frameCounters.put(cameraId, 0);
+                videoStartTimes.put(cameraId, LocalDateTime.now());
+            }
+            int frameNumber = frameCounters.getOrDefault(cameraId, 0);
+            String filename = String.format("frame_%05d.jpg", frameNumber);
+            Path framePath = cameraDir.resolve(filename);
+
+            Files.write(framePath, data);
+            frameCounters.put(cameraId, frameNumber + 1);
+
+            // khoảng 2 phút sẽ lưu một cái video
+            if (frameNumber > 0 && frameNumber % 1200 == 0) {
+                LocalDateTime startTime = videoStartTimes.getOrDefault(cameraId, LocalDateTime.now());
+                createVideoFromFramesAsync(cameraId, cameraDir, frameNumber, startTime);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+    }
 
-        public void stop() throws Exception {
-            running = false;
-            recorder.stop();
-            recorder.release();
-        }
+    // public void createVideoFromFrames(Long cameraId, Path cameraDir, int
+    // upToFrameNumber) {
+    // try {
+    // String ffmpegPath =
+    // "E:\\Download\\ffmpeg-2025-04-21-git-9e1162bdf1-full_build\\ffmpeg-2025-04-21-git-9e1162bdf1-full_build\\bin\\ffmpeg.exe";
+    // Path videosDir = cameraDir.resolve("videos");
+    // Files.createDirectories(videosDir);
+    // String timestamp =
+    // LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 
-        @Override
-        public void run() {
+    // Path outputPath = videosDir.resolve("video_" + timestamp + ".mp4");
+
+    // ProcessBuilder pb = new ProcessBuilder(
+    // ffmpegPath,
+    // "-y",
+    // "-framerate", "10",
+    // "-i", cameraDir.resolve("frame_%05d.jpg").toString(),
+    // "-frames:v", String.valueOf(upToFrameNumber),
+    // "-c:v", "libx264",
+    // "-pix_fmt", "yuv420p",
+    // outputPath.toString());
+
+    // pb.redirectErrorStream(true); // Gộp stdout + stderr
+    // Process process = pb.start();
+
+    // // In log đầu ra
+    // try (BufferedReader reader = new BufferedReader(new
+    // InputStreamReader(process.getInputStream()))) {
+    // String line;
+    // while ((line = reader.readLine()) != null) {
+    // System.out.println("[FFmpeg] " + line);
+    // }
+    // }
+
+    // int exitCode = process.waitFor();
+    // if (exitCode != 0) {
+    // System.err.println("FFmpeg exited with error code: " + exitCode);
+    // return; // Không xóa frame nếu lỗi
+    // }
+
+    // // 🔥 XÓA FRAME đã dùng
+    // for (int i = 0; i < upToFrameNumber; i++) {
+    // String frameName = String.format("frame_%05d.jpg", i);
+    // Path framePath = cameraDir.resolve(frameName);
+    // try {
+    // Files.deleteIfExists(framePath);
+    // } catch (IOException e) {
+    // System.err.println("Không thể xóa frame: " + framePath);
+    // e.printStackTrace();
+    // }
+    // }
+    // // Reset bộ đếm
+    // frameCounters.put(cameraId, 0);
+
+    // } catch (Exception e) {
+    // e.printStackTrace();
+    // }
+    // }
+    public void createVideoFromFramesAsync(Long cameraId, Path cameraDir, int upToFrameNumber,
+            LocalDateTime startTime) {
+        CompletableFuture.runAsync(() -> {
             try {
-                while (running || !queue.isEmpty()) {
-                    byte[] data = queue.poll(1, TimeUnit.SECONDS);
-                    if (data != null) {
-                        BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
-                        Frame frame = converter.convert(image);
-                        recorder.record(frame);
+                String ffmpegPath = "E:\\Download\\ffmpeg-2025-04-21-git-9e1162bdf1-full_build\\ffmpeg.exe";
+                Path videosDir = cameraDir.resolve("videos");
+                Files.createDirectories(videosDir);
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                Path outputPath = videosDir.resolve("video_" + timestamp + ".mp4");
+
+                ProcessBuilder pb = new ProcessBuilder(
+                        "ffmpeg",
+                        "-y",
+                        "-framerate", "10",
+                        "-i", cameraDir.resolve("frame_%05d.jpg").toString(),
+                        "-frames:v", String.valueOf(upToFrameNumber),
+                        "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p",
+                        outputPath.toString());
+
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[FFmpeg] " + line);
                     }
                 }
+
+                int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    System.err.println("FFmpeg exited with error code: " + exitCode);
+                    return;
+                }
+
+                // XÓA FRAME đã dùng
+                for (int i = 0; i < upToFrameNumber; i++) {
+                    String frameName = String.format("frame_%05d.jpg", i);
+                    Path framePath = cameraDir.resolve(frameName);
+                    try {
+                        Files.deleteIfExists(framePath);
+                    } catch (IOException e) {
+                        System.err.println("Không thể xóa frame: " + framePath);
+                        e.printStackTrace();
+                    }
+                }
+
+                frameCounters.put(cameraId, 0);
+                System.out.println("[FFmpeg] Video created: " + outputPath);
+
+                // tạo entity CameraRecorder
+                Camera camera = cameraRepository.findById(cameraId)
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy camera với ID: " + cameraId));
+
+                File videoFile = outputPath.toFile();
+                long fileSize = videoFile.length(); // bytes
+
+                CameraRecording recording = new CameraRecording();
+                recording.setCamera(camera);
+                recording.setFilePath(outputPath.toString());
+                recording.setStartTime(startTime); // Cần truyền startTime lúc gọi hàm
+                recording.setEndTime(LocalDateTime.now()); // Tạm thời dùng hiện tại
+                recording.setFileSize(fileSize);
+                recording.setDurationSeconds(upToFrameNumber / 10); // Vì framerate là 10 fps
+
+                cameraRecordingRepository.save(recording);
+
             } catch (Exception e) {
-                e.printStackTrace(); // Có thể log ra file sau
+                e.printStackTrace();
             }
-        }
+        });
     }
 
-    private final Map<Long, RecordingWorker> workers = new ConcurrentHashMap<>();
-    private final Map<Long, Thread> threads = new ConcurrentHashMap<>();
-
-    public void handleFrame(Long cameraId, byte[] jpegData) throws Exception {
-        workers.computeIfAbsent(cameraId, id -> {
-            try {
-                String outputFile = "videos/camera_" + id + "_" + System.currentTimeMillis() + ".mp4";
-                RecordingWorker worker = new RecordingWorker(id, outputFile);
-                Thread t = new Thread(worker);
-                t.start();
-                threads.put(id, t);
-                return worker;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).addFrame(jpegData);
-    }
-
-    public void stopRecording(Long cameraId) throws Exception {
-        RecordingWorker worker = workers.remove(cameraId);
-        Thread thread = threads.remove(cameraId);
-        if (worker != null) {
-            worker.stop();
-        }
-        if (thread != null) {
-            thread.join(); // Đợi thread kết thúc
+    public void saveVideoEmergency(Long cameraId) {
+        int frameNumber = frameCounters.getOrDefault(cameraId, 0);
+        if (frameNumber > 0) {
+            Path cameraDir = baseDir.resolve("camera_" + cameraId);
+            // Files.createDirectories(cameraDir);
+            LocalDateTime startTime = videoStartTimes.getOrDefault(cameraId, LocalDateTime.now());
+            createVideoFromFramesAsync(cameraId, cameraDir, frameNumber, startTime);
         }
     }
 }

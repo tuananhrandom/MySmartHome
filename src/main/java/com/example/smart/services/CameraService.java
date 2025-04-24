@@ -1,5 +1,9 @@
 package com.example.smart.services;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -7,10 +11,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.smart.entities.Camera;
+import com.example.smart.entities.CameraRecording;
+import com.example.smart.repositories.CameraRecordingRepository;
 import com.example.smart.repositories.CameraRepositories;
 import com.example.smart.repositories.UserRepository;
 import com.example.smart.websocket.CameraSocketHandler;
 import com.example.smart.websocket.ClientWebSocketHandler;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 
 @Service
 public class CameraService {
@@ -22,6 +30,8 @@ public class CameraService {
     ClientWebSocketHandler clientWebSocketHandler;
     @Autowired
     CameraSocketHandler cameraSocketHandler;
+    @Autowired
+    CameraRecordingRepository recordingRepository;
 
     public void userRemoveCamera(Long CameraId, Long userId) {
         Camera selectedCamera = cameraRepo.findById(userId).get();
@@ -35,6 +45,10 @@ public class CameraService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Camera not found");
         }
+    }
+
+    public Camera findById(Long cameraId) {
+        return cameraRepo.findById(cameraId).get();
     }
 
     public List<Camera> getAllCamera() {
@@ -175,5 +189,30 @@ public class CameraService {
         } else {
             throw new IllegalStateException("camera already been Used");
         }
+    }
+
+    // trả về list video đã quay
+    public List<CameraRecording> getRecordingsByCameraId(Long cameraId) {
+        return recordingRepository.findByCamera_CameraIdOrderByStartTimeDesc(cameraId);
+    }
+
+    // trả về video file để xem trực tiếp trên frontend
+    public Resource getVideoFile(Long recordingId) throws IOException {
+        CameraRecording recording = recordingRepository.findById(recordingId)
+                .orElseThrow(() -> new RuntimeException("Recording not found"));
+        Path path = Paths.get(recording.getFilePath());
+        return new UrlResource(path.toUri());
+    }
+
+    // xóa video đã quay
+    public void deleteRecording(Long recordingId) {
+        CameraRecording recording = recordingRepository.findById(recordingId)
+                .orElseThrow(() -> new RuntimeException("Recording not found"));
+        try {
+            Files.deleteIfExists(Paths.get(recording.getFilePath()));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete file", e);
+        }
+        recordingRepository.delete(recording);
     }
 }

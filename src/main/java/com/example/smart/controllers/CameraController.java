@@ -1,15 +1,19 @@
 package com.example.smart.controllers;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smart.entities.Camera;
+import com.example.smart.entities.CameraRecording;
 import com.example.smart.services.CameraService;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -63,6 +67,31 @@ public class CameraController {
         cameraService.userAddcamera(cameraId, userId, cameraName);
 
         return new ResponseEntity<>(cameraId, HttpStatus.CREATED);
+    }
+
+    // lấy về các video có trong camera
+    @GetMapping("/video/all/{cameraId}")
+    public List<CameraRecording> getRecordings(@PathVariable Long cameraId) {
+        return cameraService.getRecordingsByCameraId(cameraId);
+    }
+
+    @GetMapping("/video/{id}")
+    public ResponseEntity<Resource> streamVideo(@PathVariable Long id) {
+        try {
+            Resource video = cameraService.getVideoFile(id);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("video/mp4"))
+                    .body(video);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // xóa đi video
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRecording(@PathVariable Long id) {
+        cameraService.deleteRecording(id);
+        return ResponseEntity.noContent().build();
     }
 
 }
