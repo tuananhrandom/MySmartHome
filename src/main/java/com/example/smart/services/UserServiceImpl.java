@@ -15,6 +15,7 @@ import com.example.smart.DTO.AuthRequest;
 import com.example.smart.DTO.AuthResponse;
 import com.example.smart.DTO.ChangePasswordRequest;
 import com.example.smart.DTO.RegisterRequest;
+import com.example.smart.DTO.UpdateProfileRequest;
 import com.example.smart.entities.Role;
 import com.example.smart.entities.User;
 import com.example.smart.repositories.UserRepository;
@@ -156,5 +157,24 @@ public class UserServiceImpl implements UserService {
                 emailService.sendEmail(email, subject, body);
                 
                 return true;
+        }
+
+        @Override
+        public User updateProfile(UpdateProfileRequest request) {
+                // Lấy thông tin người dùng hiện tại
+                User currentUser = getCurrentUser();
+                
+                // // Kiểm tra email mới có bị trùng với người dùng khác không
+                // if (!currentUser.getEmail().equals(request.getEmail()) && 
+                //      userRepository.existsByEmail(request.getEmail())) {
+                //         throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
+                // }
+                
+                // Cập nhật thông tin
+                currentUser.setFullName(request.getFullName());
+                currentUser.setEmail(request.getEmail());
+                
+                // Lưu lại vào database
+                return userRepository.save(currentUser);
         }
 }

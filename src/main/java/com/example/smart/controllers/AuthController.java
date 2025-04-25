@@ -8,6 +8,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +18,7 @@ import com.example.smart.DTO.AuthRequest;
 import com.example.smart.DTO.AuthResponse;
 import com.example.smart.DTO.ChangePasswordRequest;
 import com.example.smart.DTO.RegisterRequest;
+import com.example.smart.DTO.UpdateProfileRequest;
 import com.example.smart.entities.User;
 import com.example.smart.services.UserService;
 
@@ -100,6 +102,24 @@ public class AuthController {
             } else {
                 return ResponseEntity.badRequest().body("Không thể đặt lại mật khẩu");
             }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // cập nhật thông tin tài khoản
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateProfileRequest request, BindingResult result) {
+        // Nếu có lỗi validation, trả về danh sách lỗi
+        if (result.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            result.getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+        
+        try {
+            User updatedUser = userService.updateProfile(request);
+            return ResponseEntity.ok(updatedUser);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
