@@ -12,9 +12,13 @@ import com.example.smart.services.CameraService;
 import com.example.smart.services.VideoRecordingService;
 
 import org.springframework.web.socket.TextMessage;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -38,12 +42,19 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     private final Map<Long, Set<WebSocketSession>> viewerSessions = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Long> sessionToCameraId = new ConcurrentHashMap<>();
 
+    // Thêm map để theo dõi thời gian hoạt động cuối cùng của camera
+    private final Map<WebSocketSession, Instant> lastActivityTime = new ConcurrentHashMap<>();
+    // Thời gian tối đa (giây) camera được phép không có hoạt động
+    private static final long MAX_INACTIVE_TIME_SECONDS = 60; // 1 phút
+
     // Người dùng phải xác thực trước khi nhận video
     private final Set<WebSocketSession> authenticatedViewers = ConcurrentHashMap.newKeySet();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         logger.info("WebSocket connected: " + session.getId());
+        // Ghi nhận thời gian kết nối ban đầu
+        lastActivityTime.put(session, Instant.now());
     }
 
     @Override
@@ -54,72 +65,175 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             return;
         }
 
+        // Cập nhật thời gian hoạt động cuối cùng của camera
+        lastActivityTime.put(session, Instant.now());
+
         Long cameraId = sessionToCameraId.get(session);
         if (cameraId != null) {
-            byte[] data = message.getPayload().array();
+            try {
+                byte[] data = message.getPayload().array();
 
-            // Gửi dữ liệu đến người xem
-            broadcastToViewers(cameraId, data);
+                // Gửi dữ liệu đến người xem
+                broadcastToViewers(cameraId, data);
 
-            // Gửi frame đến video recording service để ghi lại
-            videoRecordingService.handleFrame(cameraId, data);
+                // Gửi frame đến video recording service để ghi lại
+                videoRecordingService.handleFrame(cameraId, data);
+            } catch (Exception e) {
+                // Ghi log lỗi nhưng không đóng session camera
+                logger.warning("Lỗi xử lý binary message từ camera " + cameraId + ": " + e.getMessage());
+                // KHÔNG đóng session camera ở đây để duy trì kết nối
+            }
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        logger.info("WebSocket disconnected: " + session.getId());
+        logger.info("WebSocket disconnected: " + session.getId() + " với trạng thái: " + status);
 
         // Lấy camera ID trước khi xóa mapping
         Long cameraId = sessionToCameraId.get(session);
-        // chạy hàm lưu video
-        // if (cameraId != null) {
-        // System.out.println("CONNECTION LOST CALL EMERGENCY");
-        // videoRecordingService.saveVideoEmergency(cameraId);
-        // }
-        // cập nhật lại tình hình camera trên frontend
-        cameraService.updateCameraStatus(cameraId, 0, null, cameraService.findById(cameraId).getUser().getUserId());
 
-        authenticatedCameras.remove(session);
-        authenticatedViewers.remove(session);
+        // Kiểm tra xem đây là session của camera hay người xem
+        boolean isCamera = authenticatedCameras.containsKey(session);
+        boolean isViewer = authenticatedViewers.contains(session);
+
+        if (isCamera) {
+            logger.info("Camera session đã đóng: " + session.getId() + " cho camera: " + cameraId);
+
+            // Chỉ cập nhật trạng thái camera nếu cameraId tồn tại
+            if (cameraId != null) {
+                try {
+                    Camera camera = cameraService.findById(cameraId);
+                    if (camera != null && camera.getUser() != null) {
+                        cameraService.updateCameraStatus(cameraId, 0, null, camera.getUser().getUserId());
+                        logger.info("Đã cập nhật trạng thái camera " + cameraId + " thành 0 (offline)");
+                    } else {
+                        logger.warning("Camera không tồn tại hoặc không có user: " + cameraId);
+                    }
+                } catch (Exception e) {
+                    logger.warning("Lỗi khi cập nhật trạng thái camera: " + e.getMessage());
+                }
+            }
+
+            // Xóa session camera khỏi các map
+            authenticatedCameras.remove(session);
+            arduinoSessions.values().removeIf(s -> s.equals(session));
+
+        } else if (isViewer) {
+            logger.info("Viewer session đã đóng: " + session.getId() + " cho camera: " + cameraId);
+
+            // Đối với người xem, chỉ cần xóa khỏi danh sách người xem
+            authenticatedViewers.remove(session);
+
+            // Xóa khỏi danh sách viewers nếu có
+            if (cameraId != null && viewerSessions.containsKey(cameraId)) {
+                viewerSessions.get(cameraId).remove(session);
+                logger.info("Đã xóa viewer khỏi danh sách cho camera " + cameraId);
+            }
+        }
+
+        // Xóa mapping session-to-cameraId
         sessionToCameraId.remove(session);
 
-        // Xóa khỏi danh sách viewers nếu có
-        viewerSessions.values().forEach(set -> set.remove(session));
-        arduinoSessions.values().removeIf(s -> s.equals(session));
+        // Xóa thời gian hoạt động
+        lastActivityTime.remove(session);
     }
 
-    // @Override
-    // public void afterConnectionClosed(WebSocketSession session, CloseStatus
-    // status) {
-    // logger.info("WebSocket disconnected: " + session.getId());
+    // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối camera không hoạt động
+    @Scheduled(fixedRate = 30000)
+    public void checkInactiveCameraSessions() {
+        logger.info("Đang kiểm tra các kết nối camera không hoạt động...");
+        Instant now = Instant.now();
 
-    // // Lấy camera ID trước khi xóa mapping
-    // Long cameraId = sessionToCameraId.get(session);
+        // Tập hợp các session cần đóng
+        Set<WebSocketSession> sessionsToClose = ConcurrentHashMap.newKeySet();
 
-    // // Thêm delay nhỏ để đảm bảo recorder có thời gian khởi tạo nếu mới tạo
-    // if (authenticatedCameras.getOrDefault(session, false) && cameraId != null) {
-    // try {
-    // // Đợi 2 giây để đảm bảo mọi thứ được tạo xong
-    // // Thread.sleep(2000);
-    // // videoRecordingService.finishRecording(cameraId, "connection_closed");
-    // } catch (Exception e) {
-    // logger.warning("Lỗi khi kết thúc recording: " + e.getMessage());
-    // }
-    // }
+        lastActivityTime.forEach((session, lastActive) -> {
+            // Kiểm tra nếu đây là session camera và không hoạt động quá thời gian quy định
+            if (authenticatedCameras.containsKey(session)) {
+                long inactiveSeconds = ChronoUnit.SECONDS.between(lastActive, now);
 
-    // // Clean up các mapping
-    // authenticatedCameras.remove(session);
-    // authenticatedViewers.remove(session);
-    // sessionToCameraId.remove(session);
-    // viewerSessions.values().forEach(set -> set.remove(session));
-    // arduinoSessions.values().removeIf(s -> s.equals(session));
-    // }
+                if (inactiveSeconds > MAX_INACTIVE_TIME_SECONDS) {
+                    Long cameraId = sessionToCameraId.get(session);
+                    logger.warning("Camera " + cameraId + " không hoạt động trong " + inactiveSeconds
+                            + " giây. Đóng kết nối.");
+                    sessionsToClose.add(session);
+                }
+            }
+        });
+
+        // Đóng các session không hoạt động
+        for (WebSocketSession session : sessionsToClose) {
+            try {
+                Long cameraId = sessionToCameraId.get(session);
+                if (cameraId != null) {
+                    // Cập nhật trạng thái camera thành offline
+                    try {
+                        Camera camera = cameraService.findById(cameraId);
+                        if (camera != null && camera.getUser() != null) {
+                            cameraService.updateCameraStatus(cameraId, 0, null, camera.getUser().getUserId());
+                            logger.info("Heartbeat: Đã cập nhật trạng thái camera " + cameraId + " thành 0 (offline)");
+                        }
+                    } catch (Exception e) {
+                        logger.warning("Lỗi khi cập nhật trạng thái camera trong heartbeat: " + e.getMessage());
+                    }
+                }
+
+                // Đóng session và gọi hàm afterConnectionClosed
+                session.close(CloseStatus.GOING_AWAY.withReason("Inactive camera connection"));
+
+                // Xóa thủ công khỏi các map để đảm bảo dọn dẹp
+                sessionToCameraId.remove(session);
+                authenticatedCameras.remove(session);
+                lastActivityTime.remove(session);
+                arduinoSessions.values().removeIf(s -> s.equals(session));
+
+                logger.info("Đã đóng session camera không hoạt động: " + session.getId());
+            } catch (IOException e) {
+                logger.warning("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+            }
+        }
+
+        if (sessionsToClose.isEmpty()) {
+            logger.info("Không có camera nào bị ngắt kết nối do không hoạt động");
+        } else {
+            logger.info("Đã đóng " + sessionsToClose.size() + " kết nối camera không hoạt động");
+        }
+    }
+
+    // Phương thức gọi từ các service khác để kiểm tra trạng thái camera
+    public boolean isCameraConnected(Long cameraId) {
+        return arduinoSessions.containsKey(cameraId) &&
+                arduinoSessions.get(cameraId).isOpen();
+    }
+
+    // Phương thức để ping tất cả camera để kiểm tra trạng thái
+    @Scheduled(fixedRate = 20000) // 20 giây ping một lần
+    public void pingAllCameras() {
+        logger.info("Đang ping tất cả camera...");
+        arduinoSessions.forEach((cameraId, session) -> {
+            if (session.isOpen()) {
+                try {
+                    // Gửi lệnh ping đơn giản để kiểm tra kết nối
+                    session.sendMessage(new TextMessage("ping"));
+                    logger.fine("Đã ping camera " + cameraId);
+                } catch (IOException e) {
+                    logger.warning("Không thể ping camera " + cameraId + ": " + e.getMessage());
+                    // Nếu không gửi được ping, đánh dấu là không hoạt động
+                    lastActivityTime.put(session,
+                            Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));
+                }
+            }
+        });
+    }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         String payload = message.getPayload();
         System.out.println("Text message: " + payload);
+
+        // Cập nhật thời gian hoạt động khi nhận được tin nhắn text
+        lastActivityTime.put(session, Instant.now());
 
         try {
             if (payload.startsWith("camera:")) {
@@ -129,6 +243,12 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             } else if (payload.startsWith("response:")) {
                 // xử lý cấp mới người dùng trong ESP32
                 handleEspResponse(payload);
+            } else if (payload.equals("pong")) {
+                // Camera trả về pong sau khi nhận ping
+                logger.fine("Nhận pong từ session " + session.getId());
+            } else if (payload.startsWith("userControl:") && payload.contains(":control")
+                    && payload.contains(":Rotate:")) {
+                handleRotateCamera(payload);
             } else {
                 session.sendMessage(new TextMessage("invalid_format"));
                 session.close(CloseStatus.BAD_DATA);
@@ -211,39 +331,73 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
             Long userId = Long.parseLong(parts[1]);
             Long cameraId = Long.parseLong(parts[2]);
+            if (cameraId != null) {
+                Camera camera = cameraService.getCameraById(cameraId);
+                if (camera == null || camera.getUser() == null || !camera.getUser().getUserId().equals(userId)) {
+                    session.sendMessage(new TextMessage("unauthorized_access"));
+                    session.close(CloseStatus.POLICY_VIOLATION);
+                    return;
+                }
 
-            Camera camera = cameraService.getCameraById(cameraId);
-            if (camera == null || camera.getUser() == null || !camera.getUser().getUserId().equals(userId)) {
-                session.sendMessage(new TextMessage("unauthorized_access"));
-                session.close(CloseStatus.POLICY_VIOLATION);
-                return;
+                // Kiểm tra và xóa session cũ của người dùng này nếu có
+                if (sessionToCameraId.containsKey(session)) {
+                    Long oldCameraId = sessionToCameraId.get(session);
+                    if (oldCameraId != null && viewerSessions.containsKey(oldCameraId)) {
+                        viewerSessions.get(oldCameraId).remove(session);
+                        logger.info("Removed user " + userId + " from old camera " + oldCameraId);
+                    }
+                }
+
+                authenticatedViewers.add(session);
+                sessionToCameraId.put(session, cameraId);
+                viewerSessions.computeIfAbsent(cameraId, k -> ConcurrentHashMap.newKeySet()).add(session);
+
+                session.sendMessage(new TextMessage("viewer_accepted"));
+                logger.info("User " + userId + " authorized to view camera " + cameraId);
             }
-
-            authenticatedViewers.add(session);
-            sessionToCameraId.put(session, cameraId);
-            viewerSessions.computeIfAbsent(cameraId, k -> ConcurrentHashMap.newKeySet()).add(session);
-
-            session.sendMessage(new TextMessage("viewer_accepted"));
-            logger.info("User " + userId + " authorized to view camera " + cameraId);
-
         } catch (Exception e) {
-            session.sendMessage(new TextMessage("viewer_auth_error"));
-            session.close(CloseStatus.BAD_DATA);
+            logger.warning("Lỗi xác thực người xem: " + e.getMessage());
+            try {
+                session.sendMessage(new TextMessage("viewer_auth_error"));
+                session.close(CloseStatus.BAD_DATA);
+            } catch (IOException ex) {
+                logger.warning("Không thể đóng session lỗi: " + ex.getMessage());
+            }
         }
     }
 
     private void broadcastToViewers(Long cameraId, byte[] data) {
         Set<WebSocketSession> viewers = viewerSessions.get(cameraId);
         if (viewers != null) {
+            Set<WebSocketSession> toRemove = ConcurrentHashMap.newKeySet();
+
             viewers.forEach(session -> {
                 if (session.isOpen() && authenticatedViewers.contains(session)) {
                     try {
-                        session.sendMessage(new BinaryMessage(data));
+                        // Tạo binary message mới cho mỗi session để tránh vấn đề đồng thời
+                        BinaryMessage binaryMessage = new BinaryMessage(data);
+                        session.sendMessage(binaryMessage);
                     } catch (IOException e) {
-                        logger.warning("Gửi video thất bại tới session " + session.getId());
+                        logger.warning("Lỗi gửi video đến session " + session.getId() + ": " + e.getMessage());
+                        // Đánh dấu session để xóa sau này
+                        toRemove.add(session);
                     }
+                } else if (!session.isOpen()) {
+                    // Đánh dấu session đã đóng để xóa
+                    toRemove.add(session);
+                    logger.info("Đánh dấu session đã đóng để xóa: " + session.getId());
                 }
             });
+
+            // Xóa các session đã đánh dấu
+            if (!toRemove.isEmpty()) {
+                viewers.removeAll(toRemove);
+                for (WebSocketSession session : toRemove) {
+                    logger.info("Xóa viewer session đã đóng: " + session.getId());
+                    authenticatedViewers.remove(session);
+                    sessionToCameraId.remove(session);
+                }
+            }
         }
     }
 
@@ -331,6 +485,52 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             } else {
                 System.err.println("wrong token");
             }
+        }
+    }
+
+    // Xử lý lệnh xoay camera
+    private void handleRotateCamera(String payload) throws IOException {
+        try {
+            // Format: user:{userId}:control{cameraId}:Rotate:{direction}
+            String[] parts = payload.split(":");
+            if (parts.length < 5) {
+                logger.warning("Định dạng lệnh xoay camera không hợp lệ: " + payload);
+                return;
+            }
+
+            Long userId = Long.parseLong(parts[1]);
+            String controlPart = parts[2];
+            Long cameraId = null;
+
+            // Trích xuất cameraId từ chuỗi "control{cameraId}"
+            if (controlPart.startsWith("control")) {
+                String cameraIdStr = controlPart.substring(7); // Lấy phần sau "control"
+                cameraId = Long.parseLong(cameraIdStr);
+            } else {
+                logger.warning("Định dạng phần control không hợp lệ: " + controlPart);
+                return;
+            }
+
+            String direction = parts[4].toLowerCase(); // Chuyển direction thành chữ thường
+
+            // Kiểm tra quyền sở hữu camera
+            Camera camera = cameraService.getCameraById(cameraId);
+            if (camera == null || camera.getUser() == null || !camera.getUser().getUserId().equals(userId)) {
+                logger.warning("Người dùng " + userId + " không có quyền điều khiển camera " + cameraId);
+                return;
+            }
+
+            // Kiểm tra camera có đang kết nối không
+            if (!arduinoSessions.containsKey(cameraId) || !arduinoSessions.get(cameraId).isOpen()) {
+                logger.warning("Camera " + cameraId + " không trực tuyến");
+                return;
+            }
+
+            // Gửi lệnh xoay đến ESP32
+            sendControlSignal(cameraId, "Rotate:" + direction);
+            logger.info("Đã gửi lệnh xoay " + direction + " đến camera " + cameraId);
+        } catch (Exception e) {
+            logger.warning("Lỗi xử lý lệnh xoay camera: " + e.getMessage());
         }
     }
 }

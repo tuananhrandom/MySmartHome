@@ -15,10 +15,10 @@ public interface UserService extends UserDetailsService {
     AuthResponse authenticate(AuthRequest request);
 
     User getCurrentUser();
-    
+
     boolean changePassword(ChangePasswordRequest request);
-    
+
     boolean resetPassword(String email);
-    
+
     User updateProfile(UpdateProfileRequest request);
 }

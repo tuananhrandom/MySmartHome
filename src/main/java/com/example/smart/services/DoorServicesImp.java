@@ -123,7 +123,7 @@ public class DoorServicesImp implements DoorServices {
                         clientWebSocketHandler.notifyDoorUpdate(thisDoor);
                     }
 
-                    System.out.println("ESP32 accepted ownership change for light: " + doorId);
+                    System.out.println("ESP32 accepted ownership change for door: " + doorId);
                 } else {
                     // Nếu ESP32 từ chối hoặc timeout
                     throw new IllegalStateException("ESP32 rejected ownership change or did not respond");
@@ -132,8 +132,13 @@ public class DoorServicesImp implements DoorServices {
                 // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
+        } else if (doorRepo.existsById(doorId) && doorRepo.findById(doorId).get().getUser().getUserId() == userId) {
+            Door thisdoor = doorRepo.findById(doorId).get();
+            thisdoor.setDoorName(doorName);
+            doorRepo.save(thisdoor);
+            clientWebSocketHandler.notifyDoorUpdate(thisdoor);
         } else {
-            throw new IllegalArgumentException("Light not found or already owned");
+            throw new IllegalArgumentException("door not found or already owned");
         }
     }
 

@@ -76,14 +76,17 @@ public class CameraController {
     }
 
     @GetMapping("/video/{id}")
-    public ResponseEntity<Resource> streamVideo(@PathVariable Long id) {
+    public ResponseEntity<?> streamVideo(@PathVariable Long id) {
         try {
             Resource video = cameraService.getVideoFile(id);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("video/mp4"))
                     .body(video);
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            Map<String, String> error = Map.of("error", "Video not found or could not be loaded.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
         }
     }
 

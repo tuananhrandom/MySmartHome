@@ -179,7 +179,7 @@ public class CameraService {
                 // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
-            // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên đèn thôi
+            // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên camera thôi
         } else if (cameraRepo.existsById(cameraId)
                 && cameraRepo.findById(cameraId).get().getUser().getUserId() == userId) {
             Camera thiscamera = cameraRepo.findById(cameraId).get();
