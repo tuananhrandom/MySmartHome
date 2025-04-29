@@ -2,33 +2,58 @@ package com.example.smart.websocket;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.example.smart.entities.DeviceActivity;
 import com.example.smart.entities.Door;
+import com.example.smart.entities.User;
+import com.example.smart.services.DeviceActivityService;
 import com.example.smart.services.DoorServicesImp;
+import com.example.smart.services.EmailService;
+import com.example.smart.services.UserService;
 
 @Component
 public class DoorSocketHandler extends TextWebSocketHandler {
     @Autowired
+    EmailService emailService;
+    @Autowired
     DoorServicesImp doorService;
+    @Autowired
+    DeviceActivityService deviceActivityService;
+
+    // Map để theo dõi trạng thái kết nối của từng cửa
+    private Map<Long, Boolean> doorConnectionStatus = new ConcurrentHashMap<>();
 
     private Map<Long, Map<String, CompletableFuture<Boolean>>> pendingResponses = new ConcurrentHashMap<>();
 
     // Map to store WebSocket sessions with Arduino IDs as keys
     private Map<Long, WebSocketSession> arduinoSessions = new ConcurrentHashMap<>();
 
+    // Thêm map để theo dõi thời gian hoạt động cuối cùng của cửa
+    private final Map<WebSocketSession, Instant> lastActivityTime = new ConcurrentHashMap<>();
+    // Thời gian tối đa (giây) cửa được phép không có hoạt động
+    private static final long MAX_INACTIVE_TIME_SECONDS = 60; // 1 phút
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("a Door Connected");
+        // Ghi nhận thời gian kết nối ban đầu
+        lastActivityTime.put(session, Instant.now());
     }
 
     @Override
@@ -46,22 +71,55 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         if (disconnectedDoorId != null) {
             arduinoSessions.remove(disconnectedDoorId);
 
-            // Cập nhật doorIp và doorStatus thành null khi mất kết nối
-            // doorService.updateDoorStatus(disconnectedDoorId, null, null, null,);
-            System.out.println(
-                    "Connection closed for Door ID: " + disconnectedDoorId + ". Door status and IP set to null.");
+            try {
+                // Lấy thông tin user trước khi cập nhật
+                Door door = doorService.findByDoorId(disconnectedDoorId);
+                if (door != null && door.getUser() != null) {
+                    Long userId = door.getUser().getUserId();
+
+                    // Cập nhật doorIp và doorStatus thành null khi mất kết nối
+                    doorService.updateDoorStatus(disconnectedDoorId, null, null, null, userId);
+
+                    // Ghi log thiết bị đã bị mất kết nối
+                    deviceActivityService.logDoorActivity(disconnectedDoorId, "DISCONNECT", null, null, null, null,
+                            null, null, null, userId);
+
+                    System.out.println(
+                            "Connection closed for Door ID: " + disconnectedDoorId
+                                    + ". Door status and IP set to null.");
+
+                    // Cập nhật trạng thái kết nối của cửa này thành false
+                    doorConnectionStatus.put(disconnectedDoorId, false);
+                }
+            } catch (Exception e) {
+                System.err.println("Error during connection closure: " + e.getMessage());
+            }
         }
+
+        // Xóa thời gian hoạt động
+        lastActivityTime.remove(session);
     }
     // chuỗi gửi lên có dạng : doorId:doorStatus:doorLockDown:doorIp:ownerId:token
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
+
+        // Cập nhật thời gian hoạt động khi nhận được tin nhắn
+        lastActivityTime.put(session, Instant.now());
+
         // Kiểm tra nếu đây là phản hồi từ ESP32 về yêu cầu thay đổi owner
         if (payload.startsWith("response:")) {
             handleEspResponse(payload);
             return;
         }
+
+        // Kiểm tra nếu đây là phản hồi "pong" từ ESP32
+        if (payload.equals("pong")) {
+            System.out.println("Received pong from door session: " + session.getId());
+            return;
+        }
+
         if (payload.startsWith("alerted:")) {
             handleAlert(payload);
             return;
@@ -124,9 +182,21 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 }
                 // doorService.updatedoorStatus(doorId, doorStatus, doorIp, null);
             } else {
-
                 doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp, ownerId);
             }
+
+            // Kiểm tra xem cửa này đã được đánh dấu là kết nối chưa
+            Boolean isConnected = doorConnectionStatus.getOrDefault(doorId, false);
+            if (!isConnected) {
+                // Ghi log kết nối thành công
+                deviceActivityService.logDoorActivity(doorId, "CONNECT", null, null, null, null, null, null, doorIp,
+                        ownerId);
+
+                // Cập nhật trạng thái kết nối
+                doorConnectionStatus.put(doorId, true);
+                System.out.println("Cửa " + doorId + " đã kết nối thành công");
+            }
+
             return true;
         } else {
             // Nếu ID không tồn tại hoặc token không đúng thì đóng kết nối websocket
@@ -187,8 +257,22 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + doorId);
-            doorService.updateDoorStatus(doorId, null, null, null,
-                    doorService.findByDoorId(doorId).getUser().getUserId());
+            try {
+                Door door = doorService.findByDoorId(doorId);
+                if (door != null && door.getUser() != null) {
+                    Long userId = door.getUser().getUserId();
+                    doorService.updateDoorStatus(doorId, null, null, null, userId);
+
+                    // Ghi log thiết bị đã bị mất kết nối
+                    deviceActivityService.logDoorActivity(doorId, "DISCONNECT", null, null, null, null, null, null,
+                            null, userId);
+
+                    // Cập nhật trạng thái kết nối
+                    doorConnectionStatus.put(doorId, false);
+                }
+            } catch (Exception e) {
+                System.err.println("Error updating door status: " + e.getMessage());
+            }
         }
     }
 
@@ -221,11 +305,167 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleAlert(String payload) {
+        LocalDateTime now = LocalDateTime.now(); // thời điểm hiện tại
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"); // đúng format
+        String formattedDateTime = now.format(formatter);
         String[] parts = payload.split(":");
         System.out.println("doorSaid:" + payload);
         if (parts.length >= 1) {
             Long doorId = Long.parseLong(parts[1]);
+
+            // Cập nhật trạng thái cảnh báo ngay lập tức
             doorService.updateDoorAlert(doorId, 1);
+
+            try {
+                // Lấy thông tin cửa và người dùng
+                Door thisDoor = doorService.findByDoorId(doorId);
+                if (thisDoor != null && thisDoor.getUser() != null) {
+                    User thisUser = thisDoor.getUser();
+
+                    // Ghi log hoạt động
+                    deviceActivityService.logDoorActivity(doorId, "WARNING", null, null, null, null, null, null, null,
+                            thisDoor.getOwnerId());
+
+                    System.out.println("Cửa " + doorId + " đã kích hoạt cảnh báo!");
+
+                    // Chuẩn bị thông tin email
+                    String email = thisUser.getEmail();
+                    String subject = "Cảnh báo đột nhập qua cửa thông minh: " + thisDoor.getDoorName();
+                    String body = "Xin chào " + thisUser.getFullName() + ",\n\n"
+                            + "Cửa thông minh " + thisDoor.getDoorName() + " đã bị mở vào lúc " + formattedDateTime
+                            + ".\n"
+                            + "Vui lòng kiểm tra ngay lập tức để đảm bảo an toàn.\n\n"
+                            + "Trân trọng,\n"
+                            + "Đội ngũ Smart Home";
+
+                    // Gửi email bất đồng bộ - không chặn luồng xử lý chính
+                    emailService.sendEmailAsync(email, subject, body)
+                            .exceptionally(ex -> {
+                                System.err.println(
+                                        "Lỗi khi gửi email cảnh báo cho cửa " + doorId + ": " + ex.getMessage());
+                                return null;
+                            });
+
+                    System.out.println("Đã gửi yêu cầu gửi email cảnh báo cho cửa " + doorId);
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi khi xử lý cảnh báo cửa " + doorId + ": " + e.getMessage());
+            }
         }
+    }
+
+    // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối cửa không hoạt động
+    @Scheduled(fixedRate = 30000)
+    public void checkInactiveDoorSessions() {
+        System.out.println("Đang kiểm tra các kết nối cửa không hoạt động...");
+        Instant now = Instant.now();
+
+        // Tập hợp các session cần đóng
+        Set<WebSocketSession> sessionsToClose = ConcurrentHashMap.newKeySet();
+
+        lastActivityTime.forEach((session, lastActive) -> {
+            long inactiveSeconds = ChronoUnit.SECONDS.between(lastActive, now);
+
+            if (inactiveSeconds > MAX_INACTIVE_TIME_SECONDS) {
+                // Tìm ID của cửa tương ứng với session
+                Long doorId = null;
+                for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
+                    if (entry.getValue().equals(session)) {
+                        doorId = entry.getKey();
+                        break;
+                    }
+                }
+
+                if (doorId != null) {
+                    System.out.println("Cửa " + doorId + " không hoạt động trong " + inactiveSeconds
+                            + " giây. Đóng kết nối.");
+                    sessionsToClose.add(session);
+                }
+            }
+        });
+
+        // Đóng các session không hoạt động
+        for (WebSocketSession session : sessionsToClose) {
+            try {
+                // Tìm ID của cửa tương ứng với session
+                Long doorId = null;
+                for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
+                    if (entry.getValue().equals(session)) {
+                        doorId = entry.getKey();
+                        break;
+                    }
+                }
+
+                if (doorId != null) {
+                    try {
+                        // Cập nhật trạng thái cửa thành offline
+                        Door door = doorService.findByDoorId(doorId);
+                        if (door != null && door.getUser() != null) {
+                            Long userId = door.getUser().getUserId();
+                            doorService.updateDoorStatus(doorId, null, null, null, userId);
+
+                            // Ghi log thiết bị đã bị mất kết nối
+                            deviceActivityService.logDoorActivity(doorId, "DISCONNECT", null, null, null, null, null,
+                                    null, null, userId);
+
+                            System.out.println("Heartbeat: Đã cập nhật trạng thái cửa " + doorId + " thành offline");
+
+                            // Cập nhật trạng thái kết nối
+                            doorConnectionStatus.put(doorId, false);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Lỗi khi cập nhật trạng thái cửa: " + e.getMessage());
+                    }
+                }
+
+                // Đóng session
+                session.close(CloseStatus.GOING_AWAY.withReason("Inactive door connection"));
+
+                // Xóa khỏi các map
+                lastActivityTime.remove(session);
+
+                System.out.println("Đã đóng session cửa không hoạt động");
+            } catch (IOException e) {
+                System.err.println("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+            }
+        }
+
+        if (sessionsToClose.isEmpty()) {
+            System.out.println("Không có cửa nào bị ngắt kết nối do không hoạt động");
+        } else {
+            System.out.println("Đã đóng " + sessionsToClose.size() + " kết nối cửa không hoạt động");
+        }
+    }
+
+    // Phương thức để ping tất cả cửa để kiểm tra trạng thái
+    @Scheduled(fixedRate = 20000) // 20 giây ping một lần
+    public void pingAllDoors() {
+        System.out.println("Đang ping tất cả cửa...");
+        arduinoSessions.forEach((doorId, session) -> {
+            if (session.isOpen()) {
+                try {
+                    // Gửi lệnh ping đơn giản để kiểm tra kết nối
+                    session.sendMessage(new TextMessage("ping"));
+                    System.out.println("Đã ping cửa " + doorId);
+                } catch (IOException e) {
+                    System.err.println("Không thể ping cửa " + doorId + ": " + e.getMessage());
+                    // Nếu không gửi được ping, đánh dấu là không hoạt động
+                    lastActivityTime.put(session,
+                            Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));
+                }
+            }
+        });
+    }
+
+    // Phương thức để kiểm tra kết nối cửa
+    public boolean isDoorConnected(Long doorId) {
+        // Kiểm tra trong bản đồ trạng thái kết nối trước
+        Boolean status = doorConnectionStatus.get(doorId);
+        if (status != null && status) {
+            // Kiểm tra thêm xem phiên làm việc có tồn tại và đang mở không
+            WebSocketSession session = arduinoSessions.get(doorId);
+            return (session != null && session.isOpen());
+        }
+        return false;
     }
 }

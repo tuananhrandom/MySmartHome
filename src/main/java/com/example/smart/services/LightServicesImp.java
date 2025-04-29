@@ -61,17 +61,27 @@ public class LightServicesImp implements LightServices {
 
         // Lưu thay đổi vào database
         lightRepo.save(selectedLight);
-        // lưu log thiết bị
-        // Ghi nhận hoạt động
-        String activityType = lightStatus == 1 ? "ON" : "OFF";
 
-        deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp, ownerId);
+        // Chỉ ghi log và xử lý thông báo nếu lightStatus không phải null
+        if (lightStatus != null) {
+            // lưu log thiết bị
+            // Ghi nhận hoạt động
+            String activityType = lightStatus == 1 ? "ON" : "OFF";
+            deviceActivityService.logLightActivity(lightId, activityType, previousStatus, lightStatus, lightIp,
+                    ownerId);
 
-        // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
-        if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
-            clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
+            if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
+                clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            }
         } else {
+            // Trường hợp lightStatus là null (thiết bị offline)
+            deviceActivityService.logLightActivity(lightId, "DISCONNECT", previousStatus, null, lightIp, ownerId);
 
+            // Vẫn thông báo đến client về việc thiết bị offline nếu cần
+            if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
+                clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            }
         }
     }
 

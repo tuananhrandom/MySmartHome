@@ -9,6 +9,7 @@ import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
 import com.example.smart.entities.Camera;
 import com.example.smart.services.CameraService;
+import com.example.smart.services.DeviceActivityService;
 import com.example.smart.services.VideoRecordingService;
 
 import org.springframework.web.socket.TextMessage;
@@ -28,6 +29,8 @@ import java.util.logging.Logger;
 @Component
 public class CameraSocketHandler extends BinaryWebSocketHandler {
     private Map<Long, Map<String, CompletableFuture<Boolean>>> pendingResponses = new ConcurrentHashMap<>();
+    @Autowired
+    DeviceActivityService deviceActivityService;
 
     @Autowired
     private CameraService cameraService;
@@ -107,6 +110,16 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                     if (camera != null && camera.getUser() != null) {
                         cameraService.updateCameraStatus(cameraId, 0, null, camera.getUser().getUserId());
                         logger.info("Đã cập nhật trạng thái camera " + cameraId + " thành 0 (offline)");
+
+                        // gọi ermergency save video
+                        try {
+                            videoRecordingService.saveVideoEmergency(cameraId);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        // ghi log mất kết nối camera
+                        deviceActivityService.logCameraActivity(cameraId, "DISCONNECT", null, null, null,
+                                camera.getOwnerId());
                     } else {
                         logger.warning("Camera không tồn tại hoặc không có user: " + cameraId);
                     }
@@ -167,6 +180,16 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             try {
                 Long cameraId = sessionToCameraId.get(session);
                 if (cameraId != null) {
+                    // Lưu video khẩn cấp TRƯỚC KHI cập nhật trạng thái camera
+                    try {
+                        logger.info("====> Đang gọi saveVideoEmergency cho camera " + cameraId);
+                        videoRecordingService.saveVideoEmergency(cameraId);
+                        logger.info("====> Đã gọi saveVideoEmergency thành công cho camera " + cameraId);
+                    } catch (Exception e) {
+                        logger.severe("Lỗi khi gọi saveVideoEmergency cho camera " + cameraId + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+
                     // Cập nhật trạng thái camera thành offline
                     try {
                         Camera camera = cameraService.findById(cameraId);

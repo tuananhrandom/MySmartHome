@@ -2,10 +2,14 @@ package com.example.smart.websocket;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -18,7 +22,9 @@ import com.example.smart.services.LightServicesImp;
 
 @Component
 public class LightSocketHandler extends TextWebSocketHandler {
-    boolean isConnected = false;
+    // Map để theo dõi trạng thái kết nối của từng đèn
+    private Map<Long, Boolean> lightConnectionStatus = new ConcurrentHashMap<>();
+
     @Autowired
     LightServicesImp lightService;
     @Autowired
@@ -30,10 +36,16 @@ public class LightSocketHandler extends TextWebSocketHandler {
     // Map để lưu trữ các promise đang chờ phản hồi từ ESP32
     private Map<Long, Map<String, CompletableFuture<Boolean>>> pendingResponses = new ConcurrentHashMap<>();
 
+    // Thêm map để theo dõi thời gian hoạt động cuối cùng của đèn
+    private final Map<WebSocketSession, Instant> lastActivityTime = new ConcurrentHashMap<>();
+    // Thời gian tối đa (giây) đèn được phép không có hoạt động
+    private static final long MAX_INACTIVE_TIME_SECONDS = 60; // 1 phút
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("a Light Connected");
-
+        // Ghi nhận thời gian kết nối ban đầu
+        lastActivityTime.put(session, Instant.now());
     }
 
     @Override
@@ -51,17 +63,32 @@ public class LightSocketHandler extends TextWebSocketHandler {
         if (disconnectedLightId != null) {
             arduinoSessions.remove(disconnectedLightId);
 
-            // Cập nhật lightIp và lightStatus thành null khi mất kết nối
-            lightService.updateLightStatus(disconnectedLightId, null, null,
-                    lightService.findByLightId(disconnectedLightId).getUser().getUserId());
+            try {
+                // Lấy thông tin user trước khi cập nhật
+                Light light = lightService.findByLightId(disconnectedLightId);
+                if (light != null && light.getUser() != null) {
+                    Long userId = light.getUser().getUserId();
 
-            // ghi log thiết bị đã bị mất kết nối
-            deviceActivityService.logLightActivity(disconnectedLightId, "DISCONNECT", null, null, null,
-                    lightService.findByLightId(disconnectedLightId).getUser().getUserId());
-            System.out.println(
-                    "Connection closed for Light ID: " + disconnectedLightId + ". Light status and IP set to null.");
-            isConnected = false;
+                    // Cập nhật lightIp và lightStatus thành null khi mất kết nối
+                    lightService.updateLightStatus(disconnectedLightId, null, null, userId);
+
+                    // ghi log thiết bị đã bị mất kết nối
+                    deviceActivityService.logLightActivity(disconnectedLightId, "DISCONNECT", null, null, null, userId);
+
+                    System.out.println(
+                            "Connection closed for Light ID: " + disconnectedLightId
+                                    + ". Light status and IP set to null.");
+
+                    // Cập nhật trạng thái kết nối của đèn này thành false
+                    lightConnectionStatus.put(disconnectedLightId, false);
+                }
+            } catch (Exception e) {
+                System.err.println("Error during connection closure: " + e.getMessage());
+            }
         }
+
+        // Xóa thời gian hoạt động
+        lastActivityTime.remove(session);
     }
 
     @Override
@@ -69,9 +96,18 @@ public class LightSocketHandler extends TextWebSocketHandler {
         String payload = message.getPayload();
         System.out.println("payload: " + payload);
 
+        // Cập nhật thời gian hoạt động khi nhận được tin nhắn
+        lastActivityTime.put(session, Instant.now());
+
         // Kiểm tra nếu đây là phản hồi từ ESP32 về yêu cầu thay đổi owner
         if (payload.startsWith("response:")) {
             handleEspResponse(payload);
+            return;
+        }
+
+        // Kiểm tra nếu đây là phản hồi "pong" từ ESP32
+        if (payload.equals("pong")) {
+            System.out.println("Received pong from light session: " + session.getId());
             return;
         }
 
@@ -85,12 +121,16 @@ public class LightSocketHandler extends TextWebSocketHandler {
         if (handleArduinoMessage(session, lightId, lightStatus, lightIp, ownerId, arduinoToken)) {
             // arduinoSessions.put(lightId, session);
             session.sendMessage(new TextMessage("Da nhan duoc thong tin tu: " + lightId));
-            if (!isConnected) {
+
+            // Kiểm tra xem đèn này đã kết nối chưa
+            if (lightConnectionStatus.getOrDefault(lightId, false) == false) {
                 // cập nhật Log trước khi chuyển trạng thái
                 deviceActivityService.logLightActivity(lightId, "CONNECT", null, null, lightIp, ownerId);
-                isConnected = true;
-            }
 
+                // Cập nhật trạng thái kết nối
+                lightConnectionStatus.put(lightId, true);
+                System.out.println("Đèn " + lightId + " đã kết nối thành công");
+            }
         }
     }
 
@@ -144,7 +184,6 @@ public class LightSocketHandler extends TextWebSocketHandler {
                 sendControlSignal(lightId, "ownerId:" + -1);
                 // lightService.updateLightStatus(lightId, lightStatus, lightIp, null);
             } else {
-
                 lightService.updateLightStatus(lightId, lightStatus, lightIp, ownerId);
             }
             return true;
@@ -202,23 +241,131 @@ public class LightSocketHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + lightId);
-            lightService.updateLightStatus(lightId, null, null,
-                    lightService.getLightById(lightId).getUser().getUserId());
-            // ghi log thiết bị đã bị mất kết nối
-            deviceActivityService.logLightActivity(lightId, "DISCONNECT", null, null, null,
-                    lightService.findByLightId(lightId).getUser().getUserId());
-            isConnected = false;
-            // lightService.updateLightStatus(lightId, null, null,
-            // lightService.findByLightId(lightId).getUser().getUserId());
-            // lightService.updateLightStatus(lightId, null, null);
+            try {
+                Light light = lightService.getLightById(lightId);
+                if (light != null && light.getUser() != null) {
+                    Long userId = light.getUser().getUserId();
+                    lightService.updateLightStatus(lightId, null, null, userId);
+
+                    // ghi log thiết bị đã bị mất kết nối
+                    deviceActivityService.logLightActivity(lightId, "DISCONNECT", null, null, null, userId);
+
+                    // Cập nhật trạng thái kết nối
+                    lightConnectionStatus.put(lightId, false);
+                }
+            } catch (Exception e) {
+                System.err.println("Error updating light status: " + e.getMessage());
+            }
         }
     }
 
     public boolean isConnected(Long lightId) {
-        WebSocketSession session = arduinoSessions.get(lightId);
-        if (session != null && session.isOpen()) {
-            return true;
+        // Kiểm tra trong bản đồ trạng thái kết nối trước
+        Boolean status = lightConnectionStatus.get(lightId);
+        if (status != null && status) {
+            // Kiểm tra thêm xem phiên làm việc có tồn tại và đang mở không
+            WebSocketSession session = arduinoSessions.get(lightId);
+            return (session != null && session.isOpen());
         }
         return false;
+    }
+
+    // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối đèn không hoạt động
+    @Scheduled(fixedRate = 30000)
+    public void checkInactiveLightSessions() {
+        System.out.println("Đang kiểm tra các kết nối đèn không hoạt động...");
+        Instant now = Instant.now();
+
+        // Tập hợp các session cần đóng
+        Set<WebSocketSession> sessionsToClose = ConcurrentHashMap.newKeySet();
+
+        lastActivityTime.forEach((session, lastActive) -> {
+            long inactiveSeconds = ChronoUnit.SECONDS.between(lastActive, now);
+
+            if (inactiveSeconds > MAX_INACTIVE_TIME_SECONDS) {
+                // Tìm ID của đèn tương ứng với session
+                Long lightId = null;
+                for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
+                    if (entry.getValue().equals(session)) {
+                        lightId = entry.getKey();
+                        break;
+                    }
+                }
+
+                if (lightId != null) {
+                    System.out.println("Đèn " + lightId + " không hoạt động trong " + inactiveSeconds
+                            + " giây. Đóng kết nối.");
+                    sessionsToClose.add(session);
+                }
+            }
+        });
+
+        // Đóng các session không hoạt động
+        for (WebSocketSession session : sessionsToClose) {
+            try {
+                // Tìm ID của đèn tương ứng với session
+                Long lightId = null;
+                for (Map.Entry<Long, WebSocketSession> entry : arduinoSessions.entrySet()) {
+                    if (entry.getValue().equals(session)) {
+                        lightId = entry.getKey();
+                        break;
+                    }
+                }
+
+                if (lightId != null) {
+                    try {
+                        // Cập nhật trạng thái đèn thành offline
+                        Light light = lightService.getLightById(lightId);
+                        if (light != null && light.getUser() != null) {
+                            Long userId = light.getUser().getUserId();
+                            lightService.updateLightStatus(lightId, null, null, userId);
+                            deviceActivityService.logLightActivity(lightId, "DISCONNECT", null, null, null, userId);
+                            System.out.println("Heartbeat: Đã cập nhật trạng thái đèn " + lightId + " thành offline");
+
+                            // Cập nhật trạng thái kết nối
+                            lightConnectionStatus.put(lightId, false);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Lỗi khi cập nhật trạng thái đèn: " + e.getMessage());
+                    }
+                }
+
+                // Đóng session
+                session.close(CloseStatus.GOING_AWAY.withReason("Inactive light connection"));
+
+                // Xóa khỏi các map
+                lastActivityTime.remove(session);
+
+                System.out.println("Đã đóng session đèn không hoạt động");
+            } catch (IOException e) {
+                System.err.println("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+            }
+        }
+
+        if (sessionsToClose.isEmpty()) {
+            System.out.println("Không có đèn nào bị ngắt kết nối do không hoạt động");
+        } else {
+            System.out.println("Đã đóng " + sessionsToClose.size() + " kết nối đèn không hoạt động");
+        }
+    }
+
+    // Phương thức để ping tất cả đèn để kiểm tra trạng thái
+    @Scheduled(fixedRate = 20000) // 20 giây ping một lần
+    public void pingAllLights() {
+        System.out.println("Đang ping tất cả đèn...");
+        arduinoSessions.forEach((lightId, session) -> {
+            if (session.isOpen()) {
+                try {
+                    // Gửi lệnh ping đơn giản để kiểm tra kết nối
+                    session.sendMessage(new TextMessage("ping"));
+                    System.out.println("Đã ping đèn " + lightId);
+                } catch (IOException e) {
+                    System.err.println("Không thể ping đèn " + lightId + ": " + e.getMessage());
+                    // Nếu không gửi được ping, đánh dấu là không hoạt động
+                    lastActivityTime.put(session,
+                            Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));
+                }
+            }
+        });
     }
 }

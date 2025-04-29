@@ -114,66 +114,78 @@ public class UserServiceImpl implements UserService {
                 return userRepository.findByUsername(username)
                                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng hiện tại"));
         }
-        
+
         @Override
         public boolean changePassword(ChangePasswordRequest request) {
                 // Lấy thông tin người dùng hiện tại
                 User currentUser = getCurrentUser();
-                
+
                 // Kiểm tra mật khẩu cũ có khớp không
                 if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
                         throw new RuntimeException("Mật khẩu cũ không chính xác");
                 }
-                
+
                 // Đặt mật khẩu mới đã được mã hóa
                 currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
-                
+
                 // Lưu thông tin người dùng với mật khẩu mới
                 userRepository.save(currentUser);
-                
+
                 return true;
         }
 
         @Override
         public boolean resetPassword(String email) {
-                // Tìm user theo email
-                User user = userRepository.findByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
-                
-                // Tạo mật khẩu mới ngẫu nhiên 8 ký tự
-                String newPassword = PasswordGenerator.generateRandomPassword(8);
-                
-                // Cập nhật mật khẩu mới trong database (đã mã hóa)
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userRepository.save(user);
-                
-                // Gửi email chứa mật khẩu mới
-                String subject = "Đặt lại mật khẩu cho tài khoản Smart Home";
-                String body = "Xin chào " + user.getFullName() + ",\n\n"
-                            + "Mật khẩu mới của bạn là: " + newPassword + "\n\n"
-                            + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được email này.\n\n"
-                            + "Trân trọng,\nĐội ngũ Smart Home";
-                
-                emailService.sendEmail(email, subject, body);
-                
-                return true;
+                try {
+                        // Tìm user theo email
+                        User user = userRepository.findByEmail(email)
+                                        .orElseThrow(() -> new RuntimeException(
+                                                        "Không tìm thấy người dùng với email: " + email));
+
+                        // Tạo mật khẩu mới ngẫu nhiên 8 ký tự
+                        String newPassword = PasswordGenerator.generateRandomPassword(8);
+
+                        // Cập nhật mật khẩu mới trong database (đã mã hóa)
+                        user.setPassword(passwordEncoder.encode(newPassword));
+                        userRepository.save(user);
+
+                        // Gửi email chứa mật khẩu mới (bất đồng bộ)
+                        String subject = "Đặt lại mật khẩu cho tài khoản Smart Home";
+                        String body = "Xin chào " + user.getFullName() + ",\n\n"
+                                        + "Mật khẩu mới của bạn là: " + newPassword + "\n\n"
+                                        + "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được email này.\n\n"
+                                        + "Trân trọng,\nĐội ngũ Smart Home";
+
+                        // Dùng gửi email bất đồng bộ để không chặn luồng xử lý chính
+                        emailService.sendEmailAsync(email, subject, body)
+                                        .exceptionally(ex -> {
+                                                System.err.println("Lỗi khi gửi email đặt lại mật khẩu: "
+                                                                + ex.getMessage());
+                                                return null;
+                                        });
+
+                        return true;
+                } catch (Exception e) {
+                        System.err.println("Lỗi khi đặt lại mật khẩu: " + e.getMessage());
+                        throw e;
+                }
         }
 
         @Override
         public User updateProfile(UpdateProfileRequest request) {
                 // Lấy thông tin người dùng hiện tại
                 User currentUser = getCurrentUser();
-                
+
                 // // Kiểm tra email mới có bị trùng với người dùng khác không
-                // if (!currentUser.getEmail().equals(request.getEmail()) && 
-                //      userRepository.existsByEmail(request.getEmail())) {
-                //         throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
+                // if (!currentUser.getEmail().equals(request.getEmail()) &&
+                // userRepository.existsByEmail(request.getEmail())) {
+                // throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
                 // }
-                
+
                 // Cập nhật thông tin
                 currentUser.setFullName(request.getFullName());
                 currentUser.setEmail(request.getEmail());
-                
+
                 // Lưu lại vào database
                 return userRepository.save(currentUser);
         }

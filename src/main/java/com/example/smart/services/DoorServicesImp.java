@@ -81,20 +81,27 @@ public class DoorServicesImp implements DoorServices {
         // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
         if (clientWebSocketHandler != null && selectedDoor.getUser() != null) {
             clientWebSocketHandler.notifyDoorUpdate(selectedDoor);
-        } else {
-
         }
-        // lưu log
-        if (doorStatus != oldStatus) {
-            String activityType = doorStatus == 1 ? "CLOSE" : "OPEN";
-            deviceActivityService.logDoorActivity(doorId, activityType, oldStatus, doorStatus, null,
-                    null,
-                    null, null, doorIp, ownerId);
-        } else if (doorLockDown != oldAlarmStatus) {
-            String activityType = doorLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
-            deviceActivityService.logDoorActivity(doorId, activityType, null, null, oldAlarmStatus,
-                    doorLockDown,
-                    null, null, doorIp, ownerId);
+
+        // Nếu doorStatus hoặc doorLockDown là null, thì đây là trường hợp thiết bị
+        // offline
+        if (doorStatus == null || doorLockDown == null) {
+            deviceActivityService.logDoorActivity(doorId, "DISCONNECT", oldStatus, null, oldAlarmStatus,
+                    null, null, null, doorIp, ownerId);
+        } else {
+            // lưu log cho thay đổi trạng thái
+            if (oldStatus != null && doorStatus != oldStatus) {
+                String activityType = doorStatus == 1 ? "OPEN" : "CLOSE";
+                deviceActivityService.logDoorActivity(doorId, activityType, oldStatus, doorStatus, null,
+                        null, null, null, doorIp, ownerId);
+            }
+
+            // lưu log cho thay đổi trạng thái báo động
+            if (oldAlarmStatus != null && doorLockDown != oldAlarmStatus) {
+                String activityType = doorLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
+                deviceActivityService.logDoorActivity(doorId, activityType, null, null, oldAlarmStatus,
+                        doorLockDown, null, null, doorIp, ownerId);
+            }
         }
     }
 

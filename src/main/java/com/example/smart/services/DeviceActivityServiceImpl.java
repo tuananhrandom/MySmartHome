@@ -146,6 +146,9 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
             case "DISCONNECT":
                 description = "Cửa đã mất kết nối";
                 break;
+            case "WARNING":
+                description = "Phát hiện đột nhập";
+                break;
             default:
                 description = "Hoạt động khác của cửa";
         }
