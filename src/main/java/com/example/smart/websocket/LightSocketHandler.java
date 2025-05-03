@@ -129,7 +129,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
 
                 // Cập nhật trạng thái kết nối
                 lightConnectionStatus.put(lightId, true);
-                System.out.println("Đèn " + lightId + " đã kết nối thành công");
+                System.out.println("Den " + lightId + " da ket noi thanh cong");
             }
         }
     }

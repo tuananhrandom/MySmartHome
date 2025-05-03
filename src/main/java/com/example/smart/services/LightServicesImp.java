@@ -79,9 +79,9 @@ public class LightServicesImp implements LightServices {
             deviceActivityService.logLightActivity(lightId, "DISCONNECT", previousStatus, null, lightIp, ownerId);
 
             // Vẫn thông báo đến client về việc thiết bị offline nếu cần
-            if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
-                clientWebSocketHandler.notifyLightUpdate(selectedLight);
-            }
+            // if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
+            // clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            // }
         }
     }
 
