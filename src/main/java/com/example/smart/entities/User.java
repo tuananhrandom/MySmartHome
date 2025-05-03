@@ -1,6 +1,7 @@
 package com.example.smart.entities;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -54,7 +55,7 @@ public class User implements UserDetails {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @Column(name = "full_name")
+    @Column(name = "full_name", columnDefinition = "NVARCHAR(MAX)")
     private String fullName;
 
     @Enumerated(EnumType.STRING)
@@ -112,5 +113,10 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public String getDateCreate() {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return createdAt.format(dateFormatter);
     }
 }
