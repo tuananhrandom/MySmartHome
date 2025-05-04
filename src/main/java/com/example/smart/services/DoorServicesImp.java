@@ -45,6 +45,8 @@ public class DoorServicesImp implements DoorServices {
         if (selectedDoor.getUser().getUserId() == userId) {
             selectedDoor.setUser(null);
         }
+        // xóa lịch sử
+        deviceActivityService.deleteDeviceActivities("DOOR", doorId);
         doorRepo.save(selectedDoor);
         try {
             doorSocketHandler.sendControlSignal(doorId, "ownerId:" + -1);
@@ -231,6 +233,7 @@ public class DoorServicesImp implements DoorServices {
     @Override
     public void deleteDoor(Long doorId) {
         Door selected = doorRepo.findById(doorId).get();
+        deviceActivityService.deleteDeviceActivities("DOOR", doorId);
         doorRepo.delete(selected);
     }
 

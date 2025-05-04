@@ -16,6 +16,7 @@ import com.example.smart.repositories.DoorRepositories;
 import com.example.smart.repositories.LightRepositories;
 import com.example.smart.repositories.UserRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -224,5 +225,16 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
         List<DeviceActivity> oldActivities = deviceActivityRepository.findByActivityTimeBetween(
                 LocalDateTime.MIN, dateTime);
         deviceActivityRepository.deleteAll(oldActivities);
+
+    }
+
+    @Override
+    @Transactional
+    public void deleteDeviceActivities(String deviceType, Long deviceId) {
+        try {
+            deviceActivityRepository.deleteByDeviceTypeAndDeviceId(deviceType, deviceId);
+        } catch (Exception e) {
+            System.err.println(e);
+        }
     }
 }

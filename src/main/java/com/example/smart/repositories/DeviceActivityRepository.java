@@ -25,4 +25,6 @@ public interface DeviceActivityRepository extends JpaRepository<DeviceActivity, 
 
         List<DeviceActivity> findByUser_UserIdAndActivityTimeBetween(
                         Long userId, LocalDateTime startTime, LocalDateTime endTime);
+
+        void deleteByDeviceTypeAndDeviceId(String deviceType, Long deviceId);
 }

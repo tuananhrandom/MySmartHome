@@ -79,9 +79,9 @@ public class LightServicesImp implements LightServices {
             deviceActivityService.logLightActivity(lightId, "DISCONNECT", previousStatus, null, lightIp, ownerId);
 
             // Vẫn thông báo đến client về việc thiết bị offline nếu cần
-            // if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
-            // clientWebSocketHandler.notifyLightUpdate(selectedLight);
-            // }
+            if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
+                clientWebSocketHandler.notifyLightUpdate(selectedLight);
+            }
         }
     }
 
@@ -179,6 +179,7 @@ public class LightServicesImp implements LightServices {
     @Override
     public void deleteLight(Long lightId) {
         Light selected = lightRepo.findById(lightId).get();
+        deviceActivityService.deleteDeviceActivities("LIGHT", lightId);
         lightRepo.delete(selected);
         Long recipientId = selected.getUser().getUserId();
     }
@@ -190,6 +191,8 @@ public class LightServicesImp implements LightServices {
         if (selectedLight.getUser().getUserId() == userId) {
             selectedLight.setUser(null);
         }
+        // xóa toàn bộ log hoạt động của thiết bị đèn đó
+        deviceActivityService.deleteDeviceActivities("LIGHT", lightId);
         lightRepo.save(selectedLight);
         try {
             lightSocketHandler.sendControlSignal(lightId, "ownerId:" + -1);

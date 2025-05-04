@@ -32,16 +32,20 @@ public class CameraService {
     CameraSocketHandler cameraSocketHandler;
     @Autowired
     CameraRecordingRepository recordingRepository;
+    @Autowired
+    DeviceActivityService deviceActivityService;
 
-    public void userRemoveCamera(Long CameraId, Long userId) {
-        Camera selectedCamera = cameraRepo.findById(userId).get();
+    public void userRemoveCamera(Long cameraId, Long userId) {
+        Camera selectedCamera = cameraRepo.findById(cameraId).get();
         // tránh trường hợp một api từ user khác xóa Camera của user khác
         if (selectedCamera.getUser().getUserId() == userId) {
             selectedCamera.setUser(null);
         }
+        // xóa log của camera
+        deviceActivityService.deleteDeviceActivities("CAMERA", cameraId);
         cameraRepo.save(selectedCamera);
         try {
-            cameraSocketHandler.sendControlSignal(CameraId, "ownerId:" + -1);
+            cameraSocketHandler.sendControlSignal(cameraId, "ownerId:" + -1);
         } catch (Exception e) {
             throw new IllegalArgumentException("Camera not found");
         }
@@ -139,10 +143,13 @@ public class CameraService {
         }
     }
 
-    public void userDeletecamera(Long cameraId, Long userId) {
-        Camera thisCamera = cameraRepo.findById(userId).get();
+    public void adminDeletecamera(Long cameraId, Long userId) {
+        Camera thisCamera = cameraRepo.findById(cameraId).get();
+        // xóa toàn bộ log
+        deviceActivityService.deleteDeviceActivities(
+                "CAMERA", cameraId);
         if (thisCamera != null) {
-
+            cameraRepo.delete(thisCamera);
         }
     }
 

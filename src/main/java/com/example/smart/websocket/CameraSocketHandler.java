@@ -336,6 +336,11 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             arduinoSessions.put(cameraId, session);
             authenticatedCameras.put(session, true);
             sessionToCameraId.put(session, cameraId);
+            // Cập nhật trạng thái camera
+            cameraService.updateCameraStatus(cameraId, 1, ip, ownerId);
+
+            // Ghi log kết nối thành công
+            deviceActivityService.logCameraActivity(cameraId, "CONNECT", null, 1, ip, ownerId);
 
             session.sendMessage(new TextMessage("accepted"));
             logger.info("Camera authenticated: " + cameraId);

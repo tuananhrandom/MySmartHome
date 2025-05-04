@@ -81,8 +81,9 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                     doorService.updateDoorStatus(disconnectedDoorId, null, null, null, userId);
 
                     // Ghi log thiết bị đã bị mất kết nối
-                    deviceActivityService.logDoorActivity(disconnectedDoorId, "DISCONNECT", null, null, null, null,
-                            null, null, null, userId);
+                    // deviceActivityService.logDoorActivity(disconnectedDoorId, "DISCONNECT", null,
+                    // null, null, null,
+                    // null, null, null, userId);
 
                     System.out.println(
                             "Connection closed for Door ID: " + disconnectedDoorId

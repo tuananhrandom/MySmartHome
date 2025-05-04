@@ -73,7 +73,8 @@ public class LightSocketHandler extends TextWebSocketHandler {
                     lightService.updateLightStatus(disconnectedLightId, null, null, userId);
 
                     // ghi log thiết bị đã bị mất kết nối
-                    deviceActivityService.logLightActivity(disconnectedLightId, "DISCONNECT", null, null, null, userId);
+                    // deviceActivityService.logLightActivity(disconnectedLightId, "DISCONNECT",
+                    // null, null, null, userId);
 
                     System.out.println(
                             "Connection closed for Light ID: " + disconnectedLightId
@@ -176,7 +177,8 @@ public class LightSocketHandler extends TextWebSocketHandler {
             arduinoSessions.put(lightId, session);
 
             Light thisLight = lightService.getLightById(lightId);
-            // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.
+            // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.(cập
+            // nhật việc user xóa đèn khi đèn offline)
             if (thisLight.getUser() != null && thisLight.getUser().getUserId() != ownerId) {
                 sendControlSignal(lightId, "ownerId:" + thisLight.getUser().getUserId());
                 lightService.updateLightStatus(lightId, lightStatus, lightIp, thisLight.getUser().getUserId());
