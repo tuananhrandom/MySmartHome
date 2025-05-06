@@ -97,4 +97,10 @@ public class CameraController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/delete/user")
+    public ResponseEntity<?> userDeleteCamera(@RequestParam Long userId, @RequestParam Long cameraId) {
+        cameraService.userDeleteCamera(cameraId, userId);
+        return new ResponseEntity<>("Deleted", HttpStatus.OK);
+    }
+
 }

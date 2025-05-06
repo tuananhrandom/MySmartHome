@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 @Entity
 @Table(name = "schedules")
@@ -38,4 +39,9 @@ public class Schedule {
 
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    public String getTimeCreate() {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        return time.format(timeFormatter);
+    }
 }

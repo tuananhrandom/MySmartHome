@@ -128,6 +128,23 @@ public class CameraService {
         }
     }
 
+    // người dùng xóa camera
+    public void userDeleteCamera(Long cameraId, Long userId) {
+        Camera selectedLight = cameraRepo.findById(cameraId).get();
+        // tránh trường hợp một api từ user khác xóa light của user khác
+        if (selectedLight.getUser().getUserId() == userId) {
+            selectedLight.setUser(null);
+        }
+        // xóa toàn bộ log hoạt động của thiết bị đèn đó
+        deviceActivityService.deleteDeviceActivities("CAMERA", cameraId);
+        cameraRepo.save(selectedLight);
+        try {
+            cameraSocketHandler.sendControlSignal(cameraId, "ownerId:" + -1);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("camera not found");
+        }
+    }
+
     public void adminAddNewCamera(Long CameraId) {
         try {
             Camera newCamera = new Camera();
