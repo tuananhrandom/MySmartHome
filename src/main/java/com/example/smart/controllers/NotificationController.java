@@ -58,4 +58,10 @@ public class NotificationController {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("hasUnread", hasUnread));
     }
+
+    @PostMapping("/mark-all-read/{userId}")
+    public ResponseEntity<?> markAllNotificationsAsRead(@PathVariable Long userId) {
+        notificationServiceImp.markAllNotificationsAsRead(userId);
+        return ResponseEntity.ok().body(Map.of("message", "All notifications marked as read"));
+    }
 }

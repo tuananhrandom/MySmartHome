@@ -1,9 +1,11 @@
 package com.example.smart.services;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.beans.factory.annotation.Autowired;
-
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -83,5 +85,23 @@ public class NotificationServiceImp implements NotificationService {
     public boolean hasUnreadNotifications(Long userId) {
         List<Notification> notifications = notificationRepository.findByUser_UserIdOrderByTimeDesc(userId);
         return notifications.stream().anyMatch(notification -> !notification.getIsRead());
+    }
+
+    @Transactional
+    public void markAllNotificationsAsRead(Long userId) {
+        try {
+            System.out.println("Bắt đầu cập nhật thông báo cho user: " + userId);
+            int updatedCount = notificationRepository.markAllNotificationsAsReadByUserId(userId);
+            System.out.println("Đã cập nhật " + updatedCount + " thông báo");
+            
+            // Kiểm tra lại sau khi cập nhật
+            List<Notification> notifications = notificationRepository.findByUser_UserIdOrderByTimeDesc(userId);
+            long unreadCount = notifications.stream().filter(n -> !n.getIsRead()).count();
+            System.out.println("Số thông báo chưa đọc còn lại: " + unreadCount);
+        } catch (Exception e) {
+            System.err.println("Lỗi khi cập nhật thông báo: " + e.getMessage());
+            e.printStackTrace();
+            throw e; // Ném lại exception để rollback transaction
+        }
     }
 }
