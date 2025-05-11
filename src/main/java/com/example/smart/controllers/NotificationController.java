@@ -1,6 +1,7 @@
 package com.example.smart.controllers;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -50,4 +51,11 @@ public class NotificationController {
         return new ResponseEntity<>("Delete Done", HttpStatus.OK);
     }
 
+    @GetMapping("/unread/{userId}")
+    public ResponseEntity<?> checkUnreadNotifications(@PathVariable Long userId) {
+        boolean hasUnread = notificationServiceImp.hasUnreadNotifications(userId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("hasUnread", hasUnread));
+    }
 }

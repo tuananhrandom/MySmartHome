@@ -25,6 +25,7 @@ import com.example.smart.entities.User;
 import com.example.smart.services.DeviceActivityService;
 import com.example.smart.services.DoorServicesImp;
 import com.example.smart.services.EmailService;
+import com.example.smart.services.NotificationService;
 import com.example.smart.services.UserService;
 
 @Component
@@ -35,6 +36,8 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     DoorServicesImp doorService;
     @Autowired
     DeviceActivityService deviceActivityService;
+    @Autowired
+    NotificationService notificationService;
 
     // Map để theo dõi trạng thái kết nối của từng cửa
     private Map<Long, Boolean> doorConnectionStatus = new ConcurrentHashMap<>();
@@ -326,6 +329,13 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                     // Ghi log hoạt động
                     deviceActivityService.logDoorActivity(doorId, "WARNING", null, null, null, null, null, null, null,
                             thisDoor.getOwnerId());
+
+                    // Tạo thông báo
+                    notificationService.createNotification(
+                            "DOOR",
+                            "Cảnh báo đột nhập",
+                            "Cửa " + thisDoor.getDoorName() + " đã bị mở vào lúc " + formattedDateTime,
+                            thisUser.getUserId());
 
                     System.out.println("Cửa " + doorId + " đã kích hoạt cảnh báo!");
 

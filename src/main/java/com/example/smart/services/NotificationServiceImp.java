@@ -79,4 +79,9 @@ public class NotificationServiceImp implements NotificationService {
         notificationRepository.deleteAll();
     }
 
+    @Override
+    public boolean hasUnreadNotifications(Long userId) {
+        List<Notification> notifications = notificationRepository.findByUser_UserId(userId);
+        return notifications.stream().anyMatch(notification -> !notification.getIsRead());
+    }
 }

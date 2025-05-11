@@ -34,6 +34,8 @@ public class CameraService {
     CameraRecordingRepository recordingRepository;
     @Autowired
     DeviceActivityService deviceActivityService;
+    @Autowired
+    NotificationService notificationService;
 
 
     public void userRemoveCamera(Long cameraId, Long userId) {
@@ -124,8 +126,15 @@ public class CameraService {
         // Gửi thông báo đến client qua WebSocket nếu có ClientWebSocketHandler
         if (clientWebSocketHandler != null && selectedCamera.getUser() != null) {
             clientWebSocketHandler.notifyCameraUpdate(selectedCamera);
-        } else {
+        }
 
+        // Tạo thông báo khi camera bị ngắt kết nối
+        if (cameraStatus == null && selectedCamera.getUser() != null) {
+            notificationService.createNotification(
+                    "CAMERA",
+                    "Mất kết nối thiết bị",
+                    "Camera " + selectedCamera.getCameraName() + " đã mất kết nối với hệ thống",
+                    selectedCamera.getUser().getUserId());
         }
     }
 

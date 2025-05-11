@@ -78,6 +78,15 @@ public class LightServicesImp implements LightServices {
             // Trường hợp lightStatus là null (thiết bị offline)
             deviceActivityService.logLightActivity(lightId, "DISCONNECT", previousStatus, null, lightIp, ownerId);
 
+            // Tạo thông báo khi đèn bị ngắt kết nối
+            if (selectedLight.getUser() != null) {
+                notificationService.createNotification(
+                        "LIGHT",
+                        "Mất kết nối thiết bị",
+                        "Đèn " + selectedLight.getLightName() + " đã mất kết nối với hệ thống",
+                        selectedLight.getUser().getUserId());
+            }
+
             // Vẫn thông báo đến client về việc thiết bị offline nếu cần
             if (clientWebSocketHandler != null && selectedLight.getUser() != null) {
                 clientWebSocketHandler.notifyLightUpdate(selectedLight);

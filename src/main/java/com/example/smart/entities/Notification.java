@@ -41,6 +41,8 @@ public class Notification {
     @JsonIgnore
     @JoinColumn(name = "actorId", nullable = true)
     User user;
+    @Column(name = "isRead", nullable = false)
+    Boolean isRead = false;
 
     public String getDateCreate() {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");

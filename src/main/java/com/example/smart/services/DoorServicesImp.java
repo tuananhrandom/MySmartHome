@@ -30,6 +30,8 @@ public class DoorServicesImp implements DoorServices {
     ClientWebSocketHandler clientWebSocketHandler;
     @Autowired
     DoorSocketHandler doorSocketHandler;
+    @Autowired
+    NotificationService notificationService;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -90,6 +92,15 @@ public class DoorServicesImp implements DoorServices {
         if (doorStatus == null || doorLockDown == null) {
             deviceActivityService.logDoorActivity(doorId, "DISCONNECT", oldStatus, null, oldAlarmStatus,
                     null, null, null, doorIp, ownerId);
+
+            // Tạo thông báo khi cửa bị mất kết nối
+            if (selectedDoor.getUser() != null) {
+                notificationService.createNotification(
+                        "DOOR",
+                        "Mất kết nối thiết bị",
+                        "Cửa " + selectedDoor.getDoorName() + " đã mất kết nối với hệ thống",
+                        selectedDoor.getUser().getUserId());
+            }
         } else {
             // lưu log cho thay đổi trạng thái
             if (oldStatus != null && doorStatus != oldStatus) {
