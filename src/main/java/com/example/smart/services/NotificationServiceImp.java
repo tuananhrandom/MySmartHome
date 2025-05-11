@@ -36,7 +36,7 @@ public class NotificationServiceImp implements NotificationService {
     // người dùng lấy về tất cả các thông báo
     @Override
     public List<Notification> getUserNotifications(Long userId) {
-        return notificationRepository.findByUser_UserId(userId);
+        return notificationRepository.findByUser_UserIdOrderByTimeDesc(userId);
     }
 
     // người dùng lấy về thông báo theo từng loại thiết bị một
@@ -81,7 +81,7 @@ public class NotificationServiceImp implements NotificationService {
 
     @Override
     public boolean hasUnreadNotifications(Long userId) {
-        List<Notification> notifications = notificationRepository.findByUser_UserId(userId);
+        List<Notification> notifications = notificationRepository.findByUser_UserIdOrderByTimeDesc(userId);
         return notifications.stream().anyMatch(notification -> !notification.getIsRead());
     }
 }

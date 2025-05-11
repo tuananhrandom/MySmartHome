@@ -11,7 +11,7 @@ import com.example.smart.entities.Notification;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    public List<Notification> findByUser_UserId(Long userId);
+    public List<Notification> findByUser_UserIdOrderByTimeDesc(Long userId);
 
     public List<Notification> findByUser_UserIdAndNotificationType(Long userId, String NotificationType);
 
