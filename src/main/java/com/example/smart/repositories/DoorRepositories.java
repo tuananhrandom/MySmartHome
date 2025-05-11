@@ -9,5 +9,6 @@ public interface DoorRepositories extends JpaRepository<Door, Long> {
     public Door findByDoorIp(String DoorIp);
 
     public List<Door> findByUser_UserId(Long userId);
+    List<Door> findByDoorIdBetween(Long start, Long end);
 
 }

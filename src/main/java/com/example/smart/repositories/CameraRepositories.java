@@ -9,6 +9,8 @@ public interface CameraRepositories extends JpaRepository<Camera, Long> {
     public List<Camera> findByUser_UserId(Long userId);
 
     public Camera findByCameraId(Long cameraId);
-    
+
+    List<Camera> findByCameraIdBetween(Long start, Long end);
+
 
 }

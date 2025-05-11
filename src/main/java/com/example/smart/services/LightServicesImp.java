@@ -181,7 +181,7 @@ public class LightServicesImp implements LightServices {
         Light selected = lightRepo.findById(lightId).get();
         deviceActivityService.deleteDeviceActivities("LIGHT", lightId);
         lightRepo.delete(selected);
-        Long recipientId = selected.getUser().getUserId();
+        
     }
 
     @Override
@@ -226,4 +226,16 @@ public class LightServicesImp implements LightServices {
         }
     }
 
+    @Override
+    public List<Light> getLightsByRange(Long start, Long end) {
+        return lightRepo.findByLightIdBetween(start, end);
+    }
+
+    @Override
+    public void updateLight(Light light) {
+        lightRepo.save(light);
+        if (clientWebSocketHandler != null && light.getUser() != null) {
+            clientWebSocketHandler.notifyLightUpdate(light);
+        }
+    }
 }

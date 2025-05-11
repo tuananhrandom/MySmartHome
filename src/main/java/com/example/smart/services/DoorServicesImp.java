@@ -237,4 +237,21 @@ public class DoorServicesImp implements DoorServices {
         doorRepo.delete(selected);
     }
 
+    @Override
+    public Door getDoorById(Long id) {
+        return doorRepo.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<Door> getDoorsByRange(Long start, Long end) {
+        return doorRepo.findByDoorIdBetween(start, end);
+    }
+
+    @Override
+    public void updateDoor(Door door) {
+        doorRepo.save(door);
+        if (clientWebSocketHandler != null && door.getUser() != null) {
+            clientWebSocketHandler.notifyDoorUpdate(door);
+        }
+    }
 }

@@ -142,4 +142,52 @@ public class LightControllers {
     // public SseEmitter streamLights() {
     // return lightServices.createSseEmitter();
     // }
+
+    @GetMapping("/find/{id}")
+    public ResponseEntity<?> getLightById(@PathVariable Long id) {
+        Light light = lightServices.getLightById(id);
+        if (light != null) {
+            return ResponseEntity.ok(light);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/range/{start}/{end}")
+    public ResponseEntity<?> getLightsByRange(@PathVariable Long start, @PathVariable Long end) {
+        List<Light> lights = lightServices.getLightsByRange(start, end);
+        return ResponseEntity.ok(lights);
+    }
+
+    @DeleteMapping("/admin/delete/{id}")
+    public ResponseEntity<?> adminDeleteLight(@PathVariable Long id) {
+        try {
+            lightServices.deleteLight(id);
+            return ResponseEntity.ok("Light deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting light: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/admin/reset/{id}")
+    public ResponseEntity<?> adminResetLight(@PathVariable Long id) {
+        try {
+            Light light = lightServices.getLightById(id);
+            if (light == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Reset các giá trị về mặc định
+            light.setLightName(null);
+            light.setLightStatus(null);
+            light.setLightIp(null);
+            light.setUser(null);
+            
+            lightServices.updateLight(light);
+            return ResponseEntity.ok("Light reset successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error resetting light: " + e.getMessage());
+        }
+    }
 }

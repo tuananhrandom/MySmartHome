@@ -13,5 +13,7 @@ public interface LightRepositories extends JpaRepository<Light, Long> {
       public Light findByLightIp(String lightIp);
 
       public List<Light> findByUser_UserId(Long userId);
+
+      List<Light> findByLightIdBetween(Long start, Long end);
       
 }

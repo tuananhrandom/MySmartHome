@@ -129,4 +129,54 @@ public class DoorControllers {
         doorServices.userRemoveDoor(doorId, userId);
         return new ResponseEntity<>("Deleted", HttpStatus.OK);
     }
+
+    @GetMapping("/find/{id}")
+    public ResponseEntity<?> getDoorById(@PathVariable Long id) {
+        Door door = doorServices.getDoorById(id);
+        if (door != null) {
+            return ResponseEntity.ok(door);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/range/{start}/{end}")
+    public ResponseEntity<?> getDoorsByRange(@PathVariable Long start, @PathVariable Long end) {
+        List<Door> doors = doorServices.getDoorsByRange(start, end);
+        return ResponseEntity.ok(doors);
+    }
+
+    @DeleteMapping("/admin/delete/{id}")
+    public ResponseEntity<?> adminDeleteDoor(@PathVariable Long id) {
+        try {
+            doorServices.deleteDoor(id);
+            return ResponseEntity.ok("Door deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting door: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/admin/reset/{id}")
+    public ResponseEntity<?> adminResetDoor(@PathVariable Long id) {
+        try {
+            Door door = doorServices.getDoorById(id);
+            if (door == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Reset các giá trị về mặc định
+            door.setDoorName(null);
+            door.setDoorStatus(null);
+            door.setDoorIp(null);
+            door.setUser(null);
+            door.setDoorLockDown(0);
+            door.setDoorAlert(0);
+            
+            doorServices.updateDoor(door);
+            return ResponseEntity.ok("Door reset successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error resetting door: " + e.getMessage());
+        }
+    }
 }

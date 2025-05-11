@@ -35,6 +35,7 @@ public class CameraService {
     @Autowired
     DeviceActivityService deviceActivityService;
 
+
     public void userRemoveCamera(Long cameraId, Long userId) {
         Camera selectedCamera = cameraRepo.findById(cameraId).get();
         // tránh trường hợp một api từ user khác xóa Camera của user khác
@@ -63,8 +64,8 @@ public class CameraService {
         return cameraRepo.findByUser_UserId(userId);
     }
 
-    public Camera getCameraById(Long cameraId) {
-        return cameraRepo.findByCameraId(cameraId);
+    public Camera getCameraById(Long id) {
+        return cameraRepo.findById(id).orElse(null);
     }
 
     public void userAddCamera(Long cameraId, Long userId, String cameraName) {
@@ -238,5 +239,16 @@ public class CameraService {
             throw new RuntimeException("Failed to delete file", e);
         }
         recordingRepository.delete(recording);
+    }
+
+    public List<Camera> getCamerasByRange(Long start, Long end) {
+        return cameraRepo.findByCameraIdBetween(start, end);
+    }
+
+    public void updateCamera(Camera camera) {
+        cameraRepo.save(camera);
+        if (clientWebSocketHandler != null && camera.getUser() != null) {
+            clientWebSocketHandler.notifyCameraUpdate(camera);
+        }
     }
 }

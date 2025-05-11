@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/camera")
@@ -103,4 +104,51 @@ public class CameraController {
         return new ResponseEntity<>("Deleted", HttpStatus.OK);
     }
 
+    @GetMapping("/find/{id}")
+    public ResponseEntity<?> getCameraById(@PathVariable Long id) {
+        Camera camera = cameraService.getCameraById(id);
+        if (camera != null) {
+            return ResponseEntity.ok(camera);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/range/{start}/{end}")
+    public ResponseEntity<?> getCamerasByRange(@PathVariable Long start, @PathVariable Long end) {
+        List<Camera> cameras = cameraService.getCamerasByRange(start, end);
+        return ResponseEntity.ok(cameras);
+    }
+
+    @DeleteMapping("/admin/delete/{id}")
+    public ResponseEntity<?> adminDeleteCamera(@PathVariable Long id) {
+        try {
+            cameraService.adminDeletecamera(id, null); // userId có thể là null vì đây là thao tác của admin
+            return ResponseEntity.ok("Camera deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting camera: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/admin/reset/{id}")
+    public ResponseEntity<?> adminResetCamera(@PathVariable Long id) {
+        try {
+            Camera camera = cameraService.getCameraById(id);
+            if (camera == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Reset các giá trị về mặc định
+            camera.setCameraName(null);
+            camera.setCameraStatus(null);
+            camera.setCameraIp(null);
+            camera.setUser(null);
+            
+            cameraService.updateCamera(camera);
+            return ResponseEntity.ok("Camera reset successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error resetting camera: " + e.getMessage());
+        }
+    }
 }

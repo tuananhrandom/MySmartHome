@@ -45,4 +45,9 @@ public interface LightServices {
 
     public void userDeleteLight(Long lightId, Long userId);
 
+    public List<Light> getLightsByRange(Long start, Long end);
+    
+    public void updateLight(Light Light);
+    
+
 }

@@ -36,4 +36,13 @@ public interface DoorServices {
     public void deleteDoor(Long doorId);
 
     public void updateDoorAlert(Long doorId, Integer doorAlert);
+
+
+    public Door getDoorById(Long id);
+
+    public List<Door> getDoorsByRange(Long start, Long end);
+
+    public void updateDoor(Door door);
+        
+
 }
