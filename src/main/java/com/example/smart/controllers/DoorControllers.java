@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
-@RequestMapping("/door")
+@RequestMapping("/api/door")
 @CrossOrigin(origins = "http://localhost:3000")
 public class DoorControllers {
 
@@ -163,7 +163,7 @@ public class DoorControllers {
             if (door == null) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             // Reset các giá trị về mặc định
             door.setDoorName(null);
             door.setDoorStatus(null);
@@ -171,7 +171,7 @@ public class DoorControllers {
             door.setUser(null);
             door.setDoorLockDown(0);
             door.setDoorAlert(0);
-            
+
             doorServices.updateDoor(door);
             return ResponseEntity.ok("Door reset successfully");
         } catch (Exception e) {

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
-@RequestMapping("/notification")
+@RequestMapping("/api/notification")
 @CrossOrigin(origins = "http://localhost:3000")
 public class NotificationController {
     @Autowired
@@ -39,10 +39,22 @@ public class NotificationController {
         return notificationServiceImp.getUserNotifications(userId);
     }
 
-    @DeleteMapping("/delete/all")
-    public ResponseEntity<?> deleteAllLight() {
-        notificationServiceImp.deleteAllNotification();
-        return new ResponseEntity<>("Delete Done", HttpStatus.OK);
+    // @DeleteMapping("/delete/all")
+    // public ResponseEntity<?> deleteAllLight() {
+    // notificationServiceImp.deleteAllNotification();
+    // return new ResponseEntity<>("Delete Done", HttpStatus.OK);
+    // }
+    @DeleteMapping("/delete/all/{userId}")
+    public ResponseEntity<?> deleteNotificationByUserId(@PathVariable Long userId) {
+        try {
+            notificationServiceImp.deleteAllNotificationByUser(userId);
+            return new ResponseEntity<>("All notifications deleted successfully", HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            return new ResponseEntity<>("An error occurred while deleting notifications",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @DeleteMapping("/delete/{id}")

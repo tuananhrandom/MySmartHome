@@ -67,7 +67,7 @@ public class AuthController {
     public ResponseEntity<User> getCurrentUser() {
         return ResponseEntity.ok(userService.getCurrentUser());
     }
-    
+
     // đổi mật khẩu
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, BindingResult result) {
@@ -91,6 +91,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
     @PostMapping("/forget")
     public ResponseEntity<?> handleForgetPassword(@RequestParam String email) {
         try {
@@ -116,7 +117,7 @@ public class AuthController {
             result.getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
             return ResponseEntity.badRequest().body(errors);
         }
-        
+
         try {
             User updatedUser = userService.updateProfile(request);
             return ResponseEntity.ok(updatedUser);

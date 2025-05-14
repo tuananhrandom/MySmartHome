@@ -19,6 +19,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     public List<Notification> findByUser_UserIdAndNotificationType(Long userId, String NotificationType);
 
+    public void deleteByUser_UserId(Long userId);
+
     @Modifying
     @Transactional
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.userId = :userId AND n.isRead = false")

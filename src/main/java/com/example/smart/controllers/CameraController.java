@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
-@RequestMapping("/camera")
+@RequestMapping("/api/camera")
 public class CameraController {
     @Autowired
     CameraService cameraService;
@@ -137,13 +137,13 @@ public class CameraController {
             if (camera == null) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             // Reset các giá trị về mặc định
             camera.setCameraName(null);
             camera.setCameraStatus(null);
             camera.setCameraIp(null);
             camera.setUser(null);
-            
+
             cameraService.updateCamera(camera);
             return ResponseEntity.ok("Camera reset successfully");
         } catch (Exception e) {

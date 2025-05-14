@@ -75,6 +75,21 @@ public class NotificationServiceImp implements NotificationService {
         }
     }
 
+    // xóa toàn bộ thông báo dựa trên id người dùng.
+    @Override
+    @Transactional
+    public void deleteAllNotificationByUser(Long userId) {
+        try {
+            if (!userRepo.existsById(userId)) {
+                throw new RuntimeException("User not found with id: " + userId);
+            }
+            notificationRepository.deleteByUser_UserId(userId);
+        } catch (Exception e) {
+            System.err.println("Error deleting notifications: " + e.getMessage());
+            throw new RuntimeException("Failed to delete notifications: " + e.getMessage());
+        }
+    }
+
     // xóa toàn bộ thông báo
     @Override
     public void deleteAllNotification() {
@@ -93,7 +108,7 @@ public class NotificationServiceImp implements NotificationService {
             System.out.println("Bắt đầu cập nhật thông báo cho user: " + userId);
             int updatedCount = notificationRepository.markAllNotificationsAsReadByUserId(userId);
             System.out.println("Đã cập nhật " + updatedCount + " thông báo");
-            
+
             // Kiểm tra lại sau khi cập nhật
             List<Notification> notifications = notificationRepository.findByUser_UserIdOrderByTimeDesc(userId);
             long unreadCount = notifications.stream().filter(n -> !n.getIsRead()).count();

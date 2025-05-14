@@ -21,4 +21,6 @@ public interface NotificationService {
     public List<Notification> getUserNotificationsByType(Long userId, String deviceType);
 
     public boolean hasUnreadNotifications(Long userId);
+
+    public void deleteAllNotificationByUser(Long userId);
 }

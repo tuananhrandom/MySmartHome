@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
-@RequestMapping("/light")
+@RequestMapping("/api/light")
 @CrossOrigin(origins = "http://localhost:3000")
 public class LightControllers {
 
@@ -176,13 +176,13 @@ public class LightControllers {
             if (light == null) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             // Reset các giá trị về mặc định
             light.setLightName(null);
             light.setLightStatus(null);
             light.setLightIp(null);
             light.setUser(null);
-            
+
             lightServices.updateLight(light);
             return ResponseEntity.ok("Light reset successfully");
         } catch (Exception e) {
