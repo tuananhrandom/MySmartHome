@@ -27,10 +27,13 @@ public class Camera {
     private String cameraIp;
     @Column(name = "cameraStatus", nullable = true)
     private Integer cameraStatus;
+    @Column(name = "isRecord", nullable = false)
+    private Boolean isRecord = false;
     @ManyToOne
     @JsonIgnore
     @JoinColumn(name = "userId", nullable = true)
     private User user;
+
 
     @JsonProperty("ownerId")
     public Long getOwnerId() {

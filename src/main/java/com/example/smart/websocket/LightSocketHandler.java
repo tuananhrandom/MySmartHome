@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.graphql.GraphQlProperties.Websocket;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -30,7 +31,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
     @Autowired
     DeviceActivityService deviceActivityService;
 
-    // Map to store WebSocket sessions with Arduino IDs as keys
+    // Map lưu trữ các phiên làm việc của ESP32
     private Map<Long, WebSocketSession> arduinoSessions = new ConcurrentHashMap<>();
 
     // Map để lưu trữ các promise đang chờ phản hồi từ ESP32
@@ -46,6 +47,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
         System.out.println("a Light Connected");
         // Ghi nhận thời gian kết nối ban đầu
         lastActivityTime.put(session, Instant.now());
+
     }
 
     @Override

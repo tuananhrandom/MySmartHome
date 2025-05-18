@@ -31,9 +31,9 @@
 	</properties>
 	<dependencies>
 	<dependency>
-   	 	<groupId>org.bouncycastle</groupId>
-    	<artifactId>bcprov-jdk15on</artifactId>
-    	<version>1.70</version>
+		<groupId>org.bouncycastle</groupId>
+		<artifactId>bcprov-jdk18on</artifactId>
+		<version>1.78.1</version>
 	</dependency>
 	<dependency>
 		<groupId>nl.martijndwars</groupId>

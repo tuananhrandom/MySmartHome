@@ -45,6 +45,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     private final Map<Long, Set<WebSocketSession>> viewerSessions = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Long> sessionToCameraId = new ConcurrentHashMap<>();
 
+    // thêm map theo dõi trạng thái có ghi video hay không của camear
+    private final Map<Long, Boolean> isRecording = new ConcurrentHashMap<>();
+
     // Thêm map để theo dõi thời gian hoạt động cuối cùng của camera
     private final Map<WebSocketSession, Instant> lastActivityTime = new ConcurrentHashMap<>();
     // Thời gian tối đa (giây) camera được phép không có hoạt động
@@ -76,11 +79,13 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             try {
                 byte[] data = message.getPayload().array();
 
-                // Gửi dữ liệu đến người xem
+                // Gửi dữ liệu đến người xem nếu như trạng thái đang là ghi video
+                // và cameraId không phải là null
                 broadcastToViewers(cameraId, data);
+                if (isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
+                    videoRecordingService.handleFrame(cameraId, data);
+                }
 
-                // Gửi frame đến video recording service để ghi lại
-                videoRecordingService.handleFrame(cameraId, data);
             } catch (Exception e) {
                 // Ghi log lỗi nhưng không đóng session camera
                 logger.warning("Lỗi xử lý binary message từ camera " + cameraId + ": " + e.getMessage());
@@ -113,7 +118,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
                         // gọi ermergency save video
                         try {
-                            videoRecordingService.saveVideoEmergency(cameraId);
+                            if(isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
+                                videoRecordingService.saveVideoEmergency(cameraId);
+                            }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -183,7 +190,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                     // Lưu video khẩn cấp TRƯỚC KHI cập nhật trạng thái camera
                     try {
                         logger.info("====> Đang gọi saveVideoEmergency cho camera " + cameraId);
-                        videoRecordingService.saveVideoEmergency(cameraId);
+                            if(isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
+                                videoRecordingService.saveVideoEmergency(cameraId);
+                            }
                         logger.info("====> Đã gọi saveVideoEmergency thành công cho camera " + cameraId);
                     } catch (Exception e) {
                         logger.severe("Lỗi khi gọi saveVideoEmergency cho camera " + cameraId + ": " + e.getMessage());
@@ -333,6 +342,10 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             }
 
             // cameraService.updateCameraStatus(cameraId, status, ip, ownerId);
+            // thêm hàm kiểm tra camera này có đang ghi video hay không
+            // nếu có thì thêm vào map cameraRecordingStatus
+            Boolean isThisCameraRecord = cameraService.getCameraById(cameraId).getIsRecord();
+            isRecording.put(cameraId, isThisCameraRecord);
             arduinoSessions.put(cameraId, session);
             authenticatedCameras.put(session, true);
             sessionToCameraId.put(session, cameraId);

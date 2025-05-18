@@ -260,4 +260,10 @@ public class CameraService {
             clientWebSocketHandler.notifyCameraUpdate(camera);
         }
     }
+    public void toggleRecordCamera(Long cameraId) {
+        Camera selectedCamera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("camera not found with ID: " + cameraId));
+        selectedCamera.setIsRecord(!selectedCamera.getIsRecord());
+        cameraRepo.save(selectedCamera);
+    }
 }

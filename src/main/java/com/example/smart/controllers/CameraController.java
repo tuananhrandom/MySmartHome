@@ -151,4 +151,15 @@ public class CameraController {
                     .body("Error resetting camera: " + e.getMessage());
         }
     }
+    @PutMapping("/toggle-record/{cameraId}")
+    public ResponseEntity<?> toggleRecording(@PathVariable Long cameraId) {
+        try {
+            cameraService.toggleRecordCamera(cameraId);
+            return ResponseEntity.ok("Camera recording toggled successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error toggling camera recording: " + e.getMessage());
+        }
+ 
+    }
 }
