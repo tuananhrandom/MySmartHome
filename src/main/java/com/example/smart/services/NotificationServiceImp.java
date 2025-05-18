@@ -18,6 +18,10 @@ import com.example.smart.websocket.ClientWebSocketHandler;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import com.example.smart.entities.PushSubscription;
+import com.example.smart.repositories.PushSubscriptionRepository;
+import nl.martijndwars.webpush.Subscription;
+
 @Service
 public class NotificationServiceImp implements NotificationService {
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
@@ -27,6 +31,10 @@ public class NotificationServiceImp implements NotificationService {
     NotificationRepository notificationRepository;
     @Autowired
     UserRepository userRepo;
+    @Autowired
+    private WebPushService webPushService;
+    @Autowired
+    private PushSubscriptionRepository subscriptionRepository;
 
     // lấy về tất cả các thông báo (kiểm thử)
     @Override
@@ -59,8 +67,18 @@ public class NotificationServiceImp implements NotificationService {
             newNotification.setUser(userRepo.findById(userId).get());
             newNotification.setTime(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
             notificationRepository.save(newNotification);
+
+            // Gửi thông báo qua WebSocket
             clientWebSocketHandler.notifyNotificationUpdate(newNotification);
 
+            // Gửi thông báo qua Web Push
+            List<PushSubscription> subscriptions = subscriptionRepository.findByUserId(userId);
+            for (PushSubscription subscription : subscriptions) {
+                Subscription pushSubscription = new Subscription(
+                        subscription.getEndpoint(),
+                        new Subscription.Keys(subscription.getP256dh(), subscription.getAuth()));
+                webPushService.sendNotification(pushSubscription, notificationTitle, notificationContent);
+            }
         } catch (Exception e) {
             System.err.println(e);
         }

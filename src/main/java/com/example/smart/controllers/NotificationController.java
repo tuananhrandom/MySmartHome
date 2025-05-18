@@ -7,12 +7,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.example.smart.entities.PushSubscription;
 import com.example.smart.entities.Notification;
+import com.example.smart.entities.User;
+import com.example.smart.repositories.PushSubscriptionRepository;
 import com.example.smart.services.NotificationServiceImp;
+import com.example.smart.services.WebPushService;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +31,12 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 @RequestMapping("/api/notification")
 @CrossOrigin(origins = "http://localhost:3000")
 public class NotificationController {
+    @Autowired
+    private WebPushService webPushService;
+
+    @Autowired
+    private PushSubscriptionRepository subscriptionRepository;
+
     @Autowired
     NotificationServiceImp notificationServiceImp;
 
@@ -75,5 +86,33 @@ public class NotificationController {
     public ResponseEntity<?> markAllNotificationsAsRead(@PathVariable Long userId) {
         notificationServiceImp.markAllNotificationsAsRead(userId);
         return ResponseEntity.ok().body(Map.of("message", "All notifications marked as read"));
+    }
+
+    @PostMapping("/subscribe")
+    public ResponseEntity<?> subscribe(@RequestBody PushSubscription subscription,
+            @AuthenticationPrincipal User user) {
+        try {
+            PushSubscription entity = new PushSubscription();
+            entity.setUserId(user.getUserId());
+            entity.setEndpoint(subscription.getEndpoint());
+            entity.setP256dh(subscription.getP256dh());
+            entity.setAuth(subscription.getAuth());
+
+            subscriptionRepository.save(entity);
+            return ResponseEntity.ok("Subscribed successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to subscribe: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/unsubscribe")
+    public ResponseEntity<?> unsubscribe(@RequestBody PushSubscription subscription,
+            @AuthenticationPrincipal User user) {
+        try {
+            subscriptionRepository.deleteByEndpointAndUserId(subscription.getEndpoint(), user.getUserId());
+            return ResponseEntity.ok("Unsubscribed successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to unsubscribe: " + e.getMessage());
+        }
     }
 }
