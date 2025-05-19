@@ -41,7 +41,7 @@ public class CameraController {
     }
 
     // admin thêm mới một đèn vào DB
-    @PostMapping("/admin/new")
+    @PostMapping("/admin/newcamera")
     public ResponseEntity<?> AdminAddNewCamera(@RequestParam Long cameraId) {
         cameraService.adminAddNewCamera(cameraId);
 
@@ -151,6 +151,7 @@ public class CameraController {
                     .body("Error resetting camera: " + e.getMessage());
         }
     }
+
     @PutMapping("/toggle-record/{cameraId}")
     public ResponseEntity<?> toggleRecording(@PathVariable Long cameraId) {
         try {
@@ -160,6 +161,6 @@ public class CameraController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error toggling camera recording: " + e.getMessage());
         }
- 
+
     }
 }

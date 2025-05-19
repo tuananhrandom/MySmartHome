@@ -66,7 +66,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) throws Exception {
         if (!authenticatedCameras.getOrDefault(session, false)) {
-            logger.warning("Camera chưa xác thực nhưng gửi binary: " + session.getId());
+            logger.warning("Invalid camera send binary: " + session.getId());
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
@@ -88,7 +88,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
             } catch (Exception e) {
                 // Ghi log lỗi nhưng không đóng session camera
-                logger.warning("Lỗi xử lý binary message từ camera " + cameraId + ": " + e.getMessage());
+                logger.warning("Error binary processing " + cameraId + ": " + e.getMessage());
                 // KHÔNG đóng session camera ở đây để duy trì kết nối
             }
         }
@@ -96,7 +96,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        logger.info("WebSocket disconnected: " + session.getId() + " với trạng thái: " + status);
+        logger.info("WebSocket disconnected: " + session.getId() + " status: " + status);
 
         // Lấy camera ID trước khi xóa mapping
         Long cameraId = sessionToCameraId.get(session);
@@ -114,11 +114,11 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                     Camera camera = cameraService.findById(cameraId);
                     if (camera != null && camera.getUser() != null) {
                         cameraService.updateCameraStatus(cameraId, 0, null, camera.getUser().getUserId());
-                        logger.info("Đã cập nhật trạng thái camera " + cameraId + " thành 0 (offline)");
+                        logger.info("Updated camera " + cameraId + " to 0 (offline)");
 
                         // gọi ermergency save video
                         try {
-                            if(isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
+                            if (isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
                                 videoRecordingService.saveVideoEmergency(cameraId);
                             }
                         } catch (Exception e) {
@@ -128,10 +128,10 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                         deviceActivityService.logCameraActivity(cameraId, "DISCONNECT", null, null, null,
                                 camera.getOwnerId());
                     } else {
-                        logger.warning("Camera không tồn tại hoặc không có user: " + cameraId);
+                        logger.warning("Camera is not working: " + cameraId);
                     }
                 } catch (Exception e) {
-                    logger.warning("Lỗi khi cập nhật trạng thái camera: " + e.getMessage());
+                    logger.warning("Error : " + e.getMessage());
                 }
             }
 
@@ -140,7 +140,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             arduinoSessions.values().removeIf(s -> s.equals(session));
 
         } else if (isViewer) {
-            logger.info("Viewer session đã đóng: " + session.getId() + " cho camera: " + cameraId);
+            logger.info("Viewer close session " + session.getId() + " for camera: " + cameraId);
 
             // Đối với người xem, chỉ cần xóa khỏi danh sách người xem
             authenticatedViewers.remove(session);
@@ -148,7 +148,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             // Xóa khỏi danh sách viewers nếu có
             if (cameraId != null && viewerSessions.containsKey(cameraId)) {
                 viewerSessions.get(cameraId).remove(session);
-                logger.info("Đã xóa viewer khỏi danh sách cho camera " + cameraId);
+                logger.info("Delete viewer from watching " + cameraId);
             }
         }
 
@@ -162,7 +162,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối camera không hoạt động
     @Scheduled(fixedRate = 30000)
     public void checkInactiveCameraSessions() {
-        logger.info("Đang kiểm tra các kết nối camera không hoạt động...");
+        logger.info("Checking all inactive camera...");
         Instant now = Instant.now();
 
         // Tập hợp các session cần đóng
@@ -175,8 +175,8 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
 
                 if (inactiveSeconds > MAX_INACTIVE_TIME_SECONDS) {
                     Long cameraId = sessionToCameraId.get(session);
-                    logger.warning("Camera " + cameraId + " không hoạt động trong " + inactiveSeconds
-                            + " giây. Đóng kết nối.");
+                    logger.warning("Camera " + cameraId + " is not working in " + inactiveSeconds
+                            + " seconds. Close connection.");
                     sessionsToClose.add(session);
                 }
             }
@@ -189,13 +189,13 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 if (cameraId != null) {
                     // Lưu video khẩn cấp TRƯỚC KHI cập nhật trạng thái camera
                     try {
-                        logger.info("====> Đang gọi saveVideoEmergency cho camera " + cameraId);
-                            if(isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
-                                videoRecordingService.saveVideoEmergency(cameraId);
-                            }
-                        logger.info("====> Đã gọi saveVideoEmergency thành công cho camera " + cameraId);
+                        logger.info("====> saveVideoEmergency camera " + cameraId);
+                        if (isRecording.get(cameraId) != null && isRecording.get(cameraId)) {
+                            videoRecordingService.saveVideoEmergency(cameraId);
+                        }
+
                     } catch (Exception e) {
-                        logger.severe("Lỗi khi gọi saveVideoEmergency cho camera " + cameraId + ": " + e.getMessage());
+                        logger.severe("Error saveVideoEmergency cho camera " + cameraId + ": " + e.getMessage());
                         e.printStackTrace();
                     }
 
@@ -204,10 +204,10 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                         Camera camera = cameraService.findById(cameraId);
                         if (camera != null && camera.getUser() != null) {
                             cameraService.updateCameraStatus(cameraId, 0, null, camera.getUser().getUserId());
-                            logger.info("Heartbeat: Đã cập nhật trạng thái camera " + cameraId + " thành 0 (offline)");
+                            logger.info("Heartbeat: camera status update " + cameraId + " thành 0 (offline)");
                         }
                     } catch (Exception e) {
-                        logger.warning("Lỗi khi cập nhật trạng thái camera trong heartbeat: " + e.getMessage());
+                        logger.warning("Error heartbeat: " + e.getMessage());
                     }
                 }
 
@@ -220,16 +220,16 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 lastActivityTime.remove(session);
                 arduinoSessions.values().removeIf(s -> s.equals(session));
 
-                logger.info("Đã đóng session camera không hoạt động: " + session.getId());
+                logger.info("Close camera session: " + session.getId());
             } catch (IOException e) {
-                logger.warning("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+                logger.warning("error while closing camera session: " + e.getMessage());
             }
         }
 
         if (sessionsToClose.isEmpty()) {
-            logger.info("Không có camera nào bị ngắt kết nối do không hoạt động");
+            logger.info("no inactive camera session found");
         } else {
-            logger.info("Đã đóng " + sessionsToClose.size() + " kết nối camera không hoạt động");
+            logger.info("Closed " + sessionsToClose.size() + " inactive camera sessions");
         }
     }
 
@@ -242,7 +242,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
     // Phương thức để ping tất cả camera để kiểm tra trạng thái
     @Scheduled(fixedRate = 20000) // 20 giây ping một lần
     public void pingAllCameras() {
-        logger.info("Đang ping tất cả camera...");
+        logger.info("ping all cameras...");
         arduinoSessions.forEach((cameraId, session) -> {
             if (session.isOpen()) {
                 try {
@@ -250,7 +250,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                     session.sendMessage(new TextMessage("ping"));
                     logger.fine("Đã ping camera " + cameraId);
                 } catch (IOException e) {
-                    logger.warning("Không thể ping camera " + cameraId + ": " + e.getMessage());
+                    logger.warning("cant ping camera " + cameraId + ": " + e.getMessage());
                     // Nếu không gửi được ping, đánh dấu là không hoạt động
                     lastActivityTime.put(session,
                             Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));
@@ -277,7 +277,7 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 handleEspResponse(payload);
             } else if (payload.equals("pong")) {
                 // Camera trả về pong sau khi nhận ping
-                logger.fine("Nhận pong từ session " + session.getId());
+                logger.fine("receive pong from " + session.getId());
             } else if (payload.startsWith("userControl:") && payload.contains(":control")
                     && payload.contains(":Rotate:")) {
                 handleRotateCamera(payload);
@@ -290,9 +290,9 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
                 session.sendMessage(new TextMessage("internal_error"));
                 session.close(CloseStatus.SERVER_ERROR);
             } catch (IOException ioException) {
-                logger.warning("Không thể gửi lỗi tới client: " + ioException.getMessage());
+                logger.warning("Cant send error: " + ioException.getMessage());
             }
-            logger.warning("Lỗi trong handleTextMessage: " + e.getMessage());
+            logger.warning("error handleTextMessage: " + e.getMessage());
         }
     }
 
@@ -572,6 +572,23 @@ public class CameraSocketHandler extends BinaryWebSocketHandler {
             logger.info("Đã gửi lệnh xoay " + direction + " đến camera " + cameraId);
         } catch (Exception e) {
             logger.warning("Lỗi xử lý lệnh xoay camera: " + e.getMessage());
+        }
+    }
+
+    public void checkCameraRecordStatus(Long cameraId, Boolean status) {
+        Boolean oldStatus = isRecording.get(cameraId);
+        if (!isRecording.containsKey(cameraId)) {
+            isRecording.put(cameraId, false);
+            return;
+        }
+        isRecording.put(cameraId, status);
+        // Sử dụng Boolean.TRUE.equals để tránh NullPointerException
+        if (Boolean.TRUE.equals(oldStatus) && Boolean.FALSE.equals(status)) {
+            try {
+                videoRecordingService.saveVideoEmergency(cameraId);
+            } catch (Exception e) {
+                logger.warning("Lỗi khi lưu video khẩn cấp: " + e.getMessage());
+            }
         }
     }
 }

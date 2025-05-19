@@ -37,7 +37,6 @@ public class CameraService {
     @Autowired
     NotificationService notificationService;
 
-
     public void userRemoveCamera(Long cameraId, Long userId) {
         Camera selectedCamera = cameraRepo.findById(cameraId).get();
         // tránh trường hợp một api từ user khác xóa Camera của user khác
@@ -129,7 +128,7 @@ public class CameraService {
         }
 
         // Tạo thông báo khi camera bị ngắt kết nối
-        if (cameraStatus == null && selectedCamera.getUser() != null) {
+        if (cameraStatus == 0 && selectedCamera.getUser() != null) {
             notificationService.createNotification(
                     "CAMERA",
                     "Mất kết nối thiết bị",
@@ -163,6 +162,7 @@ public class CameraService {
             newCamera.setCameraStatus(null);
             newCamera.setCameraIp(null);
             newCamera.setUser(null);
+            newCamera.setIsRecord(false);
             cameraRepo.save(newCamera);
 
         } catch (Exception e) {
@@ -260,10 +260,13 @@ public class CameraService {
             clientWebSocketHandler.notifyCameraUpdate(camera);
         }
     }
+
     public void toggleRecordCamera(Long cameraId) {
         Camera selectedCamera = cameraRepo.findById(cameraId)
                 .orElseThrow(() -> new IllegalArgumentException("camera not found with ID: " + cameraId));
         selectedCamera.setIsRecord(!selectedCamera.getIsRecord());
         cameraRepo.save(selectedCamera);
+        clientWebSocketHandler.notifyCameraUpdate(selectedCamera);
+        cameraSocketHandler.checkCameraRecordStatus(cameraId, selectedCamera.getIsRecord());
     }
 }

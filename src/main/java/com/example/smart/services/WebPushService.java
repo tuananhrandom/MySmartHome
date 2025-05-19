@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -42,5 +45,19 @@ public class WebPushService {
         } catch (GeneralSecurityException | InterruptedException | ExecutionException | IOException | JoseException e) {
             throw new RuntimeException("Could not send web push notification", e);
         }
+    }
+
+    public void sendNotificationToAllDevices(List<Subscription> subscriptions, String title, String body) {
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (Subscription subscription : subscriptions) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                sendNotification(subscription, title, body);
+            });
+            futures.add(future);
+        }
+
+        // Chờ tất cả gửi xong
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 }

@@ -198,7 +198,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
 
                 // Cập nhật trạng thái kết nối
                 doorConnectionStatus.put(doorId, true);
-                System.out.println("Cửa " + doorId + " đã kết nối thành công");
+                System.out.println("Door " + doorId + " connected successfully.");
             }
 
             return true;
@@ -357,10 +357,10 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                                 return null;
                             });
 
-                    System.out.println("Đã gửi yêu cầu gửi email cảnh báo cho cửa " + doorId);
+                    System.out.println("Sent Email for Door " + doorId);
                 }
             } catch (Exception e) {
-                System.err.println("Lỗi khi xử lý cảnh báo cửa " + doorId + ": " + e.getMessage());
+                System.err.println("Error while notify Door " + doorId + ": " + e.getMessage());
             }
         }
     }
@@ -368,7 +368,7 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối cửa không hoạt động
     @Scheduled(fixedRate = 30000)
     public void checkInactiveDoorSessions() {
-        System.out.println("Đang kiểm tra các kết nối cửa không hoạt động...");
+        System.out.println("Checking inactive door...");
         Instant now = Instant.now();
 
         // Tập hợp các session cần đóng
@@ -388,8 +388,8 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 }
 
                 if (doorId != null) {
-                    System.out.println("Cửa " + doorId + " không hoạt động trong " + inactiveSeconds
-                            + " giây. Đóng kết nối.");
+                    System.out.println("Door " + doorId + " isnt active for " + inactiveSeconds
+                            + " second. Close connection.");
                     sessionsToClose.add(session);
                 }
             }
@@ -419,13 +419,13 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                             deviceActivityService.logDoorActivity(doorId, "DISCONNECT", null, null, null, null, null,
                                     null, null, userId);
 
-                            System.out.println("Heartbeat: Đã cập nhật trạng thái cửa " + doorId + " thành offline");
+                            System.out.println("Heartbeat: updated door status " + doorId + " to offline");
 
                             // Cập nhật trạng thái kết nối
                             doorConnectionStatus.put(doorId, false);
                         }
                     } catch (Exception e) {
-                        System.err.println("Lỗi khi cập nhật trạng thái cửa: " + e.getMessage());
+                        System.err.println("Error while notify door: " + e.getMessage());
                     }
                 }
 
@@ -435,31 +435,31 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 // Xóa khỏi các map
                 lastActivityTime.remove(session);
 
-                System.out.println("Đã đóng session cửa không hoạt động");
+                System.out.println("Closed inactive session for door ID: " + doorId);
             } catch (IOException e) {
-                System.err.println("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+                System.err.println("Error while close session " + e.getMessage());
             }
         }
 
         if (sessionsToClose.isEmpty()) {
-            System.out.println("Không có cửa nào bị ngắt kết nối do không hoạt động");
+            System.out.println("No inactive door.");
         } else {
-            System.out.println("Đã đóng " + sessionsToClose.size() + " kết nối cửa không hoạt động");
+            System.out.println("Closed " + sessionsToClose.size() + " inactive door session(s).");
         }
     }
 
     // Phương thức để ping tất cả cửa để kiểm tra trạng thái
     @Scheduled(fixedRate = 20000) // 20 giây ping một lần
     public void pingAllDoors() {
-        System.out.println("Đang ping tất cả cửa...");
+        System.out.println("Ping all door...");
         arduinoSessions.forEach((doorId, session) -> {
             if (session.isOpen()) {
                 try {
                     // Gửi lệnh ping đơn giản để kiểm tra kết nối
                     session.sendMessage(new TextMessage("ping"));
-                    System.out.println("Đã ping cửa " + doorId);
+                    System.out.println("Ping door " + doorId);
                 } catch (IOException e) {
-                    System.err.println("Không thể ping cửa " + doorId + ": " + e.getMessage());
+                    System.err.println("Cant ping door " + doorId + ": " + e.getMessage());
                     // Nếu không gửi được ping, đánh dấu là không hoạt động
                     lastActivityTime.put(session,
                             Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));

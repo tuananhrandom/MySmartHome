@@ -277,7 +277,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
     // Scheduled task chạy mỗi 30 giây để kiểm tra kết nối đèn không hoạt động
     @Scheduled(fixedRate = 30000)
     public void checkInactiveLightSessions() {
-        System.out.println("Đang kiểm tra các kết nối đèn không hoạt động...");
+        System.out.println("Checking inactive light...");
         Instant now = Instant.now();
 
         // Tập hợp các session cần đóng
@@ -297,8 +297,8 @@ public class LightSocketHandler extends TextWebSocketHandler {
                 }
 
                 if (lightId != null) {
-                    System.out.println("Đèn " + lightId + " không hoạt động trong " + inactiveSeconds
-                            + " giây. Đóng kết nối.");
+                    System.out.println("Light " + lightId + " is not working " + inactiveSeconds
+                            + " seconds. close connection.");
                     sessionsToClose.add(session);
                 }
             }
@@ -324,13 +324,13 @@ public class LightSocketHandler extends TextWebSocketHandler {
                             Long userId = light.getUser().getUserId();
                             lightService.updateLightStatus(lightId, null, null, userId);
                             deviceActivityService.logLightActivity(lightId, "DISCONNECT", null, null, null, userId);
-                            System.out.println("Heartbeat: Đã cập nhật trạng thái đèn " + lightId + " thành offline");
+                            System.out.println("Heartbeat: updated " + lightId + " thành offline");
 
                             // Cập nhật trạng thái kết nối
                             lightConnectionStatus.put(lightId, false);
                         }
                     } catch (Exception e) {
-                        System.err.println("Lỗi khi cập nhật trạng thái đèn: " + e.getMessage());
+                        System.err.println("Error with Light: " + e.getMessage());
                     }
                 }
 
@@ -340,31 +340,31 @@ public class LightSocketHandler extends TextWebSocketHandler {
                 // Xóa khỏi các map
                 lastActivityTime.remove(session);
 
-                System.out.println("Đã đóng session đèn không hoạt động");
+                System.out.println("Close session");
             } catch (IOException e) {
-                System.err.println("Lỗi khi đóng session không hoạt động: " + e.getMessage());
+                System.err.println("Error while close session: " + e.getMessage());
             }
         }
 
         if (sessionsToClose.isEmpty()) {
-            System.out.println("Không có đèn nào bị ngắt kết nối do không hoạt động");
+            System.out.println("No light working");
         } else {
-            System.out.println("Đã đóng " + sessionsToClose.size() + " kết nối đèn không hoạt động");
+            System.out.println("Closed " + sessionsToClose.size() + " kết nối đèn không hoạt động");
         }
     }
 
     // Phương thức để ping tất cả đèn để kiểm tra trạng thái
     @Scheduled(fixedRate = 20000) // 20 giây ping một lần
     public void pingAllLights() {
-        System.out.println("Đang ping tất cả đèn...");
+        System.out.println("Ping all Light...");
         arduinoSessions.forEach((lightId, session) -> {
             if (session.isOpen()) {
                 try {
                     // Gửi lệnh ping đơn giản để kiểm tra kết nối
                     session.sendMessage(new TextMessage("ping"));
-                    System.out.println("Đã ping đèn " + lightId);
+                    System.out.println("Ping light " + lightId);
                 } catch (IOException e) {
-                    System.err.println("Không thể ping đèn " + lightId + ": " + e.getMessage());
+                    System.err.println("Cant ping light " + lightId + ": " + e.getMessage());
                     // Nếu không gửi được ping, đánh dấu là không hoạt động
                     lastActivityTime.put(session,
                             Instant.now().minus(MAX_INACTIVE_TIME_SECONDS + 1, ChronoUnit.SECONDS));

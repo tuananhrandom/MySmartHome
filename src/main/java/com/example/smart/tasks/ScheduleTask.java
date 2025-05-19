@@ -1,6 +1,7 @@
 package com.example.smart.tasks;
 
 import com.example.smart.entities.Schedule;
+import com.example.smart.services.CameraService;
 import com.example.smart.services.DoorServicesImp;
 import com.example.smart.services.LightServicesImp;
 import com.example.smart.services.ScheduleService;
@@ -23,6 +24,8 @@ public class ScheduleTask {
 
     @Autowired
     private DoorServicesImp doorService;
+    @Autowired
+    private CameraService cameraService;
 
     @Scheduled(fixedRate = 60000) // Kiểm tra mỗi phút
     public void checkSchedules() {
@@ -60,6 +63,12 @@ public class ScheduleTask {
                     doorService.toggleDoorAlarm(schedule.getDeviceId(), schedule.getUser().getUserId());
                 } else if ("off".equals(schedule.getAction())) {
                     doorService.toggleDoorAlarm(schedule.getDeviceId(), schedule.getUser().getUserId());
+                }
+            } else if ("camera".equals(schedule.getDeviceType())) {
+                if ("on".equals(schedule.getAction())) {
+                    cameraService.toggleRecordCamera(schedule.getDeviceId());
+                } else if ("off".equals(schedule.getAction())) {
+                    cameraService.toggleRecordCamera(schedule.getDeviceId());
                 }
             }
         } catch (Exception e) {
