@@ -9,6 +9,10 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -36,9 +40,24 @@ public class Light {
     @JsonIgnore
     @JoinColumn(name = "ownerId", nullable = true)
     User user;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+    @Column(name = "lightCreatedTime", nullable = false)
+    private LocalDateTime createdTime;
+
     @JsonProperty("ownerId")
     public Long getOwnerId() {
-    return user != null ? user.getUserId() : null;
-}
+        return user != null ? user.getUserId() : null;
+    }
+
+    public String getDateCreate() {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return createdTime.format(dateFormatter);
+    }
+
+    public String getTimeCreate() {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        return createdTime.format(timeFormatter);
+    }
 
 }

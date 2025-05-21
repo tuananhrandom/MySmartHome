@@ -4,14 +4,20 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smart.entities.Camera;
 import com.example.smart.entities.CameraRecording;
+import com.example.smart.entities.User;
 import com.example.smart.repositories.CameraRecordingRepository;
 import com.example.smart.repositories.CameraRepositories;
 import com.example.smart.repositories.UserRepository;
@@ -19,6 +25,8 @@ import com.example.smart.websocket.CameraSocketHandler;
 import com.example.smart.websocket.ClientWebSocketHandler;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+
+import java.io.File;
 
 @Service
 public class CameraService {
@@ -40,7 +48,26 @@ public class CameraService {
     public void userRemoveCamera(Long cameraId, Long userId) {
         Camera selectedCamera = cameraRepo.findById(cameraId).get();
         // tránh trường hợp một api từ user khác xóa Camera của user khác
-        if (selectedCamera.getUser().getUserId() == userId) {
+        if (selectedCamera.getUser().getUserId().equals(userId)) {
+            // Lấy danh sách các bản ghi recording
+            List<CameraRecording> recordings = recordingRepository.findByCamera(selectedCamera);
+
+            // Tạo danh sách các CompletableFuture để xóa file bất đồng bộ
+            List<CompletableFuture<Void>> deleteFutures = recordings.stream()
+                    .map(recording -> CompletableFuture.runAsync(() -> {
+                        File recordingFile = new File(recording.getFilePath());
+                        if (recordingFile.exists()) {
+                            recordingFile.delete();
+                        }
+                    }))
+                    .toList();
+
+            // Đợi tất cả các file được xóa xong
+            CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0])).join();
+
+            // Xóa các bản ghi recording từ database
+            recordingRepository.deleteAll(recordings);
+
             selectedCamera.setUser(null);
         }
         // xóa log của camera
@@ -65,8 +92,15 @@ public class CameraService {
         return cameraRepo.findByUser_UserId(userId);
     }
 
+    @Transactional(readOnly = true)
     public Camera getCameraById(Long id) {
-        return cameraRepo.findById(id).orElse(null);
+        return cameraRepo.findById(id)
+                .map(camera -> {
+                    // Force load sharedUsers
+                    camera.getSharedUsers().size();
+                    return camera;
+                })
+                .orElse(null);
     }
 
     public void userAddCamera(Long cameraId, Long userId, String cameraName) {
@@ -102,6 +136,14 @@ public class CameraService {
                 // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
+        }
+        // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên camera thôi
+        else if (cameraRepo.existsById(cameraId)
+                && cameraRepo.findById(cameraId).get().getUser().getUserId().equals(userId)) {
+            Camera thisCamera = cameraRepo.findById(cameraId).get();
+            thisCamera.setCameraName(cameraName);
+            cameraRepo.save(thisCamera);
+            clientWebSocketHandler.notifyCameraUpdate(thisCamera);
         } else {
             throw new IllegalArgumentException("camera not found or already owned");
         }
@@ -141,7 +183,7 @@ public class CameraService {
     public void userDeleteCamera(Long cameraId, Long userId) {
         Camera selectedLight = cameraRepo.findById(cameraId).get();
         // tránh trường hợp một api từ user khác xóa light của user khác
-        if (selectedLight.getUser().getUserId() == userId) {
+        if (selectedLight.getUser().getUserId().equals(userId)) {
             selectedLight.setUser(null);
         }
         // xóa toàn bộ log hoạt động của thiết bị đèn đó
@@ -159,10 +201,11 @@ public class CameraService {
             Camera newCamera = new Camera();
             newCamera.setCameraId(CameraId);
             newCamera.setCameraName(null);
-            newCamera.setCameraStatus(null);
+            newCamera.setCameraStatus(0);
             newCamera.setCameraIp(null);
             newCamera.setUser(null);
             newCamera.setIsRecord(false);
+            newCamera.setCreatedTime(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
             cameraRepo.save(newCamera);
 
         } catch (Exception e) {
@@ -171,13 +214,11 @@ public class CameraService {
     }
 
     public void adminDeletecamera(Long cameraId, Long userId) {
-        Camera thisCamera = cameraRepo.findById(cameraId).get();
         // xóa toàn bộ log
         deviceActivityService.deleteDeviceActivities(
                 "CAMERA", cameraId);
-        if (thisCamera != null) {
-            cameraRepo.delete(thisCamera);
-        }
+        // Sử dụng phương thức deleteCamera để xóa camera và các bản ghi liên quan
+        deleteCamera(cameraId);
     }
 
     public void userAddcamera(Long cameraId, Long userId, String cameraName) {
@@ -215,7 +256,7 @@ public class CameraService {
             }
             // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên camera thôi
         } else if (cameraRepo.existsById(cameraId)
-                && cameraRepo.findById(cameraId).get().getUser().getUserId() == userId) {
+                && cameraRepo.findById(cameraId).get().getUser().getUserId().equals(userId)) {
             Camera thiscamera = cameraRepo.findById(cameraId).get();
             thiscamera.setCameraName(cameraName);
             cameraRepo.save(thiscamera);
@@ -268,5 +309,156 @@ public class CameraService {
         cameraRepo.save(selectedCamera);
         clientWebSocketHandler.notifyCameraUpdate(selectedCamera);
         cameraSocketHandler.checkCameraRecordStatus(cameraId, selectedCamera.getIsRecord());
+    }
+
+    public void startRecordingAllCameraByDoor(Long ownerId) {
+        List<Camera> cameras = cameraRepo.findByUser_UserId(ownerId);
+        List<CompletableFuture<Void>> futures = cameras.stream().map(camera -> CompletableFuture.runAsync(() -> {
+            try {
+                if (camera.getIsRecord()) {
+                    return; // Nếu camera đã đang ghi hình thì bỏ qua
+                } else if (!camera.getIsRecord()) {
+                    camera.setIsRecord(true);
+                    cameraRepo.save(camera);
+                }
+                // Gửi yêu cầu bắt đầu ghi hình đến camera
+                cameraSocketHandler.checkCameraRecordStatus(camera.getCameraId(), true);
+                // tạo thông báo đến người dùng
+                notificationService.createNotification(
+                        "CAMERA",
+                        "Bắt đầu ghi hình",
+                        "Camera " + camera.getCameraName() + " đã bắt đầu ghi hình khẩn cấp do cửa mở trái phép",
+                        ownerId);
+                // thay đổi trạng thái camera trên giao diện
+                clientWebSocketHandler.notifyCameraUpdate(camera);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to start recording for camera: " + camera.getCameraId(), e);
+            }
+        })).toList();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    @Transactional
+    public void deleteCamera(Long cameraId) {
+        Camera camera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new RuntimeException("Camera not found"));
+
+        // Lấy danh sách các bản ghi recording
+        List<CameraRecording> recordings = recordingRepository.findByCamera(camera);
+
+        // Xóa các file recording
+        for (CameraRecording recording : recordings) {
+            File recordingFile = new File(recording.getFilePath());
+            if (recordingFile.exists()) {
+                recordingFile.delete();
+            }
+        }
+
+        // Xóa camera (các bản ghi recording sẽ tự động bị xóa nhờ @OnDelete)
+        cameraRepo.delete(camera);
+    }
+
+    public List<Camera> getCamerasByDateRange(LocalDateTime start, LocalDateTime end) {
+        return cameraRepo.findByCreatedTimeBetween(start, end);
+    }
+
+    public void shareCamera(Long cameraId, Long currentUserId, String targetUsername, String targetEmail) {
+        // Kiểm tra camera tồn tại
+        Camera camera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("Camera not found"));
+
+        // Kiểm tra người dùng hiện tại là chủ sở hữu
+        if (camera.getUser() == null || !camera.getUser().getUserId().equals(currentUserId)) {
+            throw new IllegalArgumentException("You don't have permission to share this camera");
+        }
+
+        // Tìm target user
+        User targetUser = userRepo.findByUsername(targetUsername)
+                .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
+
+        // Kiểm tra email có khớp không
+        if (!targetUser.getEmail().equals(targetEmail)) {
+            throw new IllegalArgumentException("Email does not match with the username");
+        }
+
+        // Kiểm tra không phải là chủ sở hữu
+        if (targetUser.getUserId().equals(currentUserId)) {
+            throw new IllegalArgumentException("Cannot share camera with yourself");
+        }
+
+        // Khởi tạo sharedUsers nếu chưa có
+        if (camera.getSharedUsers() == null) {
+            camera.setSharedUsers(new HashSet<>());
+        }
+
+        // Kiểm tra camera đã được chia sẻ cho user này chưa
+        if (camera.getSharedUsers().contains(targetUser)) {
+            throw new IllegalArgumentException("Camera already shared with this user");
+        }
+
+        // Thêm user vào danh sách shared
+        camera.getSharedUsers().add(targetUser);
+        cameraRepo.save(camera);
+
+        // Tạo thông báo cho người dùng được chia sẻ
+        notificationService.createNotification(
+                "CAMERA",
+                "Camera được chia sẻ",
+                "Camera " + camera.getCameraName() + " đã được chia sẻ với bạn",
+                targetUser.getUserId());
+    }
+
+    public void unshareCamera(Long cameraId, Long currentUserId, Long targetUserId) {
+        // Kiểm tra camera tồn tại
+        Camera camera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("Camera not found"));
+
+        // Kiểm tra người dùng hiện tại là chủ sở hữu
+        if (camera.getUser() == null || !camera.getUser().getUserId().equals(currentUserId)) {
+            throw new IllegalArgumentException("You don't have permission to unshare this camera");
+        }
+
+        // Tìm target user
+        User targetUser = userRepo.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
+
+        // Kiểm tra camera đã được chia sẻ cho user này chưa
+        if (camera.getSharedUsers() == null ||
+                !camera.getSharedUsers().contains(targetUser)) {
+            throw new IllegalArgumentException("Camera is not shared with this user");
+        }
+
+        // Xóa user khỏi danh sách shared
+        camera.getSharedUsers().remove(targetUser);
+        cameraRepo.save(camera);
+
+        // Tạo thông báo cho người dùng bị hủy chia sẻ
+        notificationService.createNotification(
+                "CAMERA",
+                "Camera bị hủy chia sẻ",
+                "Camera " + camera.getCameraName() + " đã bị hủy chia sẻ với bạn",
+                targetUser.getUserId());
+    }
+
+    public Set<User> getSharedUsers(Long cameraId, Long currentUserId) {
+        // Kiểm tra camera tồn tại
+        Camera camera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("Camera not found"));
+
+        // Kiểm tra người dùng hiện tại là chủ sở hữu
+        if (camera.getUser() == null ||
+                !camera.getUser().getUserId().equals(currentUserId)) {
+            throw new IllegalArgumentException("You don't have permission to view shared users");
+        }
+
+        return camera.getSharedUsers() != null ? camera.getSharedUsers() : new HashSet<>();
+    }
+
+    public void adminAddUserToCamera(Long cameraId, Long userId) {
+        Camera camera = cameraRepo.findById(cameraId)
+                .orElseThrow(() -> new IllegalArgumentException("Camera not found"));
+        camera.setUser(userRepo.findById(userId).get());
+        camera.setCameraName("");
+        cameraRepo.save(camera);
     }
 }

@@ -1,5 +1,7 @@
 package com.example.smart.services;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -105,6 +107,7 @@ public class LightServicesImp implements LightServices {
         newLight.setLightStatus(null);
         newLight.setLightIp(null);
         newLight.setUser(null);
+        newLight.setCreatedTime(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
         lightRepo.save(newLight);
     }
 
@@ -145,7 +148,8 @@ public class LightServicesImp implements LightServices {
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
             // nếu đèn đã có chủ và chủ đúng với người gửi về thì cập nhật tên đèn thôi
-        } else if (lightRepo.existsById(lightId) && lightRepo.findById(lightId).get().getUser().getUserId() == userId) {
+        } else if (lightRepo.existsById(lightId)
+                && lightRepo.findById(lightId).get().getUser().getUserId().equals(userId)) {
             Light thisLight = lightRepo.findById(lightId).get();
             thisLight.setLightName(lightName);
             lightRepo.save(thisLight);
@@ -190,14 +194,14 @@ public class LightServicesImp implements LightServices {
         Light selected = lightRepo.findById(lightId).get();
         deviceActivityService.deleteDeviceActivities("LIGHT", lightId);
         lightRepo.delete(selected);
-        
+
     }
 
     @Override
     public void userDeleteLight(Long lightId, Long userId) {
         Light selectedLight = lightRepo.findById(lightId).get();
         // tránh trường hợp một api từ user khác xóa light của user khác
-        if (selectedLight.getUser().getUserId() == userId) {
+        if (selectedLight.getUser().getUserId().equals(userId)) {
             selectedLight.setUser(null);
         }
         // xóa toàn bộ log hoạt động của thiết bị đèn đó
@@ -213,7 +217,7 @@ public class LightServicesImp implements LightServices {
     @Override
     public void toggleLight(Long lightId, Long ownerId) {
         Light selectedLight = lightRepo.findById(lightId).get();
-        if (selectedLight != null && selectedLight.getUser().getUserId() == ownerId) {
+        if (selectedLight != null && selectedLight.getUser().getUserId().equals(ownerId)) {
             Integer previousStatus = selectedLight.getLightStatus();
             Integer lightStatus = 1 - previousStatus;
             selectedLight.setLightStatus(lightStatus);
@@ -246,5 +250,18 @@ public class LightServicesImp implements LightServices {
         if (clientWebSocketHandler != null && light.getUser() != null) {
             clientWebSocketHandler.notifyLightUpdate(light);
         }
+    }
+
+    @Override
+    public List<Light> getLightsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return lightRepo.findByCreatedTimeBetween(start, end);
+    }
+
+    @Override
+    public void adminAddUserToLight(Long lightId, Long userId) {
+        Light light = lightRepo.findById(lightId).orElseThrow(() -> new IllegalArgumentException("Light not found"));
+        light.setUser(userRepo.findById(userId).get());
+        light.setLightName("");
+        lightRepo.save(light);
     }
 }

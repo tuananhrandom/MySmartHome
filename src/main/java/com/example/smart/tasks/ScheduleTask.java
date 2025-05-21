@@ -27,7 +27,7 @@ public class ScheduleTask {
     @Autowired
     private CameraService cameraService;
 
-    @Scheduled(fixedRate = 60000) // Kiểm tra mỗi phút
+    @Scheduled(fixedRate = 40000) // Kiểm tra mỗi 40s
     public void checkSchedules() {
         LocalTime currentTime = LocalTime.now().withSecond(0).withNano(0);
         DayOfWeek currentDay = DayOfWeek.from(java.time.LocalDate.now());

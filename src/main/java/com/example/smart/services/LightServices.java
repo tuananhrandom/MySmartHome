@@ -1,5 +1,6 @@
 package com.example.smart.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -46,8 +47,11 @@ public interface LightServices {
     public void userDeleteLight(Long lightId, Long userId);
 
     public List<Light> getLightsByRange(Long start, Long end);
-    
+
     public void updateLight(Light Light);
-    
+
+    public List<Light> getLightsByDateRange(LocalDateTime start, LocalDateTime end);
+
+    public void adminAddUserToLight(Long lightId, Long userId);
 
 }

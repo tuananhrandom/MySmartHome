@@ -1,5 +1,6 @@
 package com.example.smart.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -37,12 +38,13 @@ public interface DoorServices {
 
     public void updateDoorAlert(Long doorId, Integer doorAlert);
 
-
     public Door getDoorById(Long id);
 
     public List<Door> getDoorsByRange(Long start, Long end);
 
     public void updateDoor(Door door);
-        
 
+    public List<Door> getDoorsByDateRange(LocalDateTime start, LocalDateTime end);
+
+    public void adminAddUserToDoor(Long doorId, Long userId);
 }

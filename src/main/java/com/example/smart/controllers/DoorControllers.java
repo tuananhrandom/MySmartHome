@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/door")
@@ -67,8 +70,20 @@ public class DoorControllers {
     // user toggle door alarm
     @PutMapping("/toggle")
     public ResponseEntity<?> toggleDoorAlarm(@RequestParam Long doorId, @RequestParam Long userId) {
-        doorServices.toggleDoorAlarm(doorId, userId);
-        return new ResponseEntity<>("Door alarm toggled", HttpStatus.OK);
+        try {
+            System.out.println("Received toggle request for door: " + doorId + " by user: " + userId);
+            doorServices.toggleDoorAlarm(doorId, userId);
+            return new ResponseEntity<>("Door alarm toggled successfully", HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Invalid door operation: " + e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (RuntimeException e) {
+            System.err.println("Error toggling door alarm: " + e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            System.err.println("Unexpected error: " + e.getMessage());
+            return new ResponseEntity<>("An unexpected error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     // admin tạo ra đèn mới với một ID cố định được đặt trong database
@@ -124,7 +139,7 @@ public class DoorControllers {
         return new ResponseEntity<>("OK", HttpStatus.OK);
     }
 
-    @DeleteMapping("/user/delete")
+    @DeleteMapping("/delete/user")
     public ResponseEntity<?> userRemoveDoor(@RequestParam Long doorId, @RequestParam Long userId) {
         doorServices.userRemoveDoor(doorId, userId);
         return new ResponseEntity<>("Deleted", HttpStatus.OK);
@@ -177,6 +192,43 @@ public class DoorControllers {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error resetting door: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/daterange")
+    public ResponseEntity<?> getDoorsByDateRange(
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            LocalDateTime start = LocalDate.parse(startDate, formatter).atStartOfDay();
+            LocalDateTime end = LocalDate.parse(endDate, formatter).atTime(23, 59, 59);
+
+            List<Door> doors = doorServices.getDoorsByDateRange(start, end);
+            return ResponseEntity.ok(doors);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid date format. Please use MM/dd/yyyy format");
+        }
+    }
+
+    @PostMapping("/admin/add-user")
+    public ResponseEntity<?> adminAddUserToDoor(@RequestBody Map<String, Object> request) {
+        try {
+            Long doorId = ((Number) request.get("deviceId")).longValue();
+            Long userId = ((Number) request.get("userId")).longValue();
+
+            Door door = doorServices.getDoorById(doorId);
+            if (door == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Không tìm thấy cửa với ID: " + doorId);
+            }
+
+            doorServices.adminAddUserToDoor(doorId, userId);
+            return ResponseEntity.ok("Đã thêm người dùng vào cửa thành công");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Lỗi khi thêm người dùng vào cửa: " + e.getMessage());
         }
     }
 }

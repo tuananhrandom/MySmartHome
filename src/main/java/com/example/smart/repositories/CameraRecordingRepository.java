@@ -10,6 +10,8 @@ import java.util.List;
 
 @Repository
 public interface CameraRecordingRepository extends JpaRepository<CameraRecording, Long> {
+    List<CameraRecording> findByCamera(Camera camera);
+
     List<CameraRecording> findByCameraOrderByStartTimeDesc(Camera camera);
 
     List<CameraRecording> findByCameraAndStartTimeAfterAndEndTimeBeforeOrderByStartTimeDesc(

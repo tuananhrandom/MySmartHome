@@ -3,6 +3,10 @@ package com.example.smart.controllers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -12,9 +16,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smart.DTO.ShareCameraRequest;
 import com.example.smart.entities.Camera;
 import com.example.smart.entities.CameraRecording;
+import com.example.smart.entities.User;
 import com.example.smart.services.CameraService;
+import com.example.smart.services.UserService;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +36,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 public class CameraController {
     @Autowired
     CameraService cameraService;
+
+    @Autowired
+    UserService userService;
 
     @GetMapping("/all")
     public List<Camera> getAllCameras() {
@@ -100,7 +110,7 @@ public class CameraController {
 
     @DeleteMapping("/delete/user")
     public ResponseEntity<?> userDeleteCamera(@RequestParam Long userId, @RequestParam Long cameraId) {
-        cameraService.userDeleteCamera(cameraId, userId);
+        cameraService.userRemoveCamera(cameraId, userId);
         return new ResponseEntity<>("Deleted", HttpStatus.OK);
     }
 
@@ -162,5 +172,92 @@ public class CameraController {
                     .body("Error toggling camera recording: " + e.getMessage());
         }
 
+    }
+
+    @GetMapping("/daterange")
+    public ResponseEntity<?> getCamerasByDateRange(
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            LocalDateTime start = LocalDate.parse(startDate, formatter).atStartOfDay();
+            LocalDateTime end = LocalDate.parse(endDate, formatter).atTime(23, 59, 59);
+
+            List<Camera> cameras = cameraService.getCamerasByDateRange(start, end);
+            return ResponseEntity.ok(cameras);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid date format. Please use MM/dd/yyyy format");
+        }
+    }
+
+    @PostMapping("/share/{cameraId}")
+    public ResponseEntity<?> shareCamera(
+            @PathVariable Long cameraId,
+            @RequestBody ShareCameraRequest request) {
+        try {
+            User currentUser = userService.getCurrentUser();
+            cameraService.shareCamera(cameraId, currentUser.getUserId(), request.getTargetUsername(),
+                    request.getTargetEmail());
+            return ResponseEntity.ok("Camera shared successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/unshare/{cameraId}/{targetUserId}")
+    public ResponseEntity<?> unshareCamera(
+            @PathVariable Long cameraId,
+            @PathVariable Long targetUserId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+            cameraService.unshareCamera(cameraId, currentUser.getUserId(), targetUserId);
+            return ResponseEntity.ok("Camera unshared successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/shared-users/{cameraId}")
+    public ResponseEntity<?> getSharedUsers(@PathVariable Long cameraId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+            Set<User> sharedUsers = cameraService.getSharedUsers(cameraId,
+                    currentUser.getUserId());
+            return ResponseEntity.ok(sharedUsers);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/shared-with-me")
+    public ResponseEntity<?> getSharedCameras() {
+        try {
+            User currentUser = userService.getCurrentUser();
+            Set<Camera> sharedCameras = currentUser.getSharedCameras();
+            return ResponseEntity.ok(sharedCameras);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/admin/add-user")
+    public ResponseEntity<?> adminAddUserToCamera(@RequestBody Map<String, Object> request) {
+        try {
+            Long cameraId = ((Number) request.get("deviceId")).longValue();
+            Long userId = ((Number) request.get("userId")).longValue();
+
+            Camera camera = cameraService.getCameraById(cameraId);
+            if (camera == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Không tìm thấy camera với ID: " + cameraId);
+            }
+
+            cameraService.adminAddUserToCamera(cameraId, userId);
+            return ResponseEntity.ok("Đã thêm người dùng vào camera thành công");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Lỗi khi thêm người dùng vào camera: " + e.getMessage());
+        }
     }
 }

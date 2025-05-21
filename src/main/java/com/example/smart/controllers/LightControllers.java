@@ -3,6 +3,9 @@ package com.example.smart.controllers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -69,8 +72,19 @@ public class LightControllers {
     // }
     @PutMapping("/toggle")
     public ResponseEntity<?> toggleLight(@RequestParam Long lightId, @RequestParam Long userId) {
-        lightServices.toggleLight(lightId, userId);
-        return new ResponseEntity<>("Light updated", HttpStatus.OK);
+        try {
+            lightServices.toggleLight(lightId, userId);
+            return new ResponseEntity<>("Light updated", HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Invalid light operation: " + e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (RuntimeException e) {
+            System.err.println("Error toggling light: " + e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            System.err.println("Unexpected error: " + e.getMessage());
+            return new ResponseEntity<>("An unexpected error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     // @PutMapping("/arduino/update/{lightId}") // cập nhật trạng thái của đèn
@@ -112,7 +126,7 @@ public class LightControllers {
             @RequestParam Long userId,
             @RequestBody Map<String, Object> request) {
         System.out.println("request: " + request);
-
+        System.out.println("userId: " + userId);
         String lightName = (String) request.get("lightName");
         Long lightId = ((Number) request.get("lightId")).longValue(); // Chuyển Object về Long
 
@@ -188,6 +202,45 @@ public class LightControllers {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error resetting light: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/daterange")
+    public ResponseEntity<?> getLightsByDateRange(
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            LocalDateTime start = LocalDate.parse(startDate, formatter).atStartOfDay();
+            LocalDateTime end = LocalDate.parse(endDate, formatter).atTime(23, 59, 59);
+
+            List<Light> lights = lightServices.getLightsByDateRange(start, end);
+            return ResponseEntity.ok(lights);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid date format. Please use MM/dd/yyyy format");
+        }
+    }
+
+    @PostMapping("/admin/add-user")
+    public ResponseEntity<?> adminAddUserToLight(@RequestBody Map<String, Object> request) {
+        try {
+            Long lightId = ((Number) request.get("deviceId")).longValue();
+            System.out.println("lightId: " + lightId);
+            Long userId = ((Number) request.get("userId")).longValue();
+            System.out.println("userId: " + userId);
+
+            Light light = lightServices.getLightById(lightId);
+            if (light == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Không tìm thấy đèn với ID: " + lightId);
+            }
+
+            lightServices.adminAddUserToLight(lightId, userId);
+            return ResponseEntity.ok("Đã thêm người dùng vào đèn thành công");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Lỗi khi thêm người dùng vào đèn: " + e.getMessage());
         }
     }
 }

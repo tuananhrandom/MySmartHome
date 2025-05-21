@@ -181,7 +181,7 @@ public class LightSocketHandler extends TextWebSocketHandler {
             Light thisLight = lightService.getLightById(lightId);
             // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.(cập
             // nhật việc user xóa đèn khi đèn offline)
-            if (thisLight.getUser() != null && thisLight.getUser().getUserId() != ownerId) {
+            if (thisLight.getUser() != null && !thisLight.getUser().getUserId().equals(ownerId)) {
                 sendControlSignal(lightId, "ownerId:" + thisLight.getUser().getUserId());
                 lightService.updateLightStatus(lightId, lightStatus, lightIp, thisLight.getUser().getUserId());
             } else if (thisLight.getUser() == null && ownerId != -1) {

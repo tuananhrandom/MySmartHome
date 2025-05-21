@@ -1,5 +1,7 @@
 package com.example.smart.services;
 
+import java.util.List;
+
 import org.springframework.security.core.userdetails.UserDetailsService;
 
 import com.example.smart.DTO.AuthRequest;
@@ -21,4 +23,10 @@ public interface UserService extends UserDetailsService {
     boolean resetPassword(String email);
 
     User updateProfile(UpdateProfileRequest request);
+
+    List<User> getAllUsers();
+
+    User getUserById(Long userId);
+
+    boolean deleteUser(Long userId);
 }

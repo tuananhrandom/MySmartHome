@@ -187,10 +187,10 @@ public class DeviceActivityServiceImpl implements DeviceActivityService {
         // Thêm thông tin mô tả dựa trên hoạt động
         String description = "";
         switch (activityType) {
-            case "STREAM_START":
+            case "START_RECORDING":
                 description = "Camera bắt đầu truyền dữ liệu";
                 break;
-            case "STREAM_END":
+            case "STOP_RECORDING":
                 description = "Camera ngừng truyền dữ liệu";
                 break;
             case "CONNECT":

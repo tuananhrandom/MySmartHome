@@ -1,5 +1,9 @@
 package com.example.smart.entities;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -40,4 +44,19 @@ public class Door {
     public Long getOwnerId() {
         return user != null ? user.getUserId() : null;
     }
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+    @Column(name = "doorCreatedTime", nullable = false)
+    private LocalDateTime createdTime;
+
+    public String getTimeCreate() {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        return createdTime.format(timeFormatter);
+    }
+
+    public String getDateCreate() {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return createdTime.format(dateFormatter);
+    }
+
 }

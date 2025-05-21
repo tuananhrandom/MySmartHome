@@ -9,6 +9,12 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.example.smart.DTO.AuthRequest;
@@ -21,6 +27,11 @@ import com.example.smart.entities.User;
 import com.example.smart.repositories.UserRepository;
 import com.example.smart.security.JwtService;
 import com.example.smart.utils.PasswordGenerator;
+import com.example.smart.repositories.DeviceActivityRepository;
+import com.example.smart.repositories.ScheduleRepository;
+import com.example.smart.repositories.NotificationRepository;
+import com.example.smart.repositories.PushSubscriptionRepository;
+import com.example.smart.repositories.CameraRecordingRepository;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -30,6 +41,17 @@ public class UserServiceImpl implements UserService {
         private final JwtService jwtService;
         private AuthenticationManager authenticationManager;
         private final EmailService emailService;
+
+        @Autowired
+        private DeviceActivityRepository deviceActivityRepository;
+        @Autowired
+        private ScheduleRepository scheduleRepository;
+        @Autowired
+        private NotificationRepository notificationRepository;
+        @Autowired
+        private PushSubscriptionRepository pushSubscriptionRepository;
+        @Autowired
+        private CameraRecordingRepository cameraRecordingRepository;
 
         public UserServiceImpl(UserRepository userRepository,
                         PasswordEncoder passwordEncoder,
@@ -189,4 +211,83 @@ public class UserServiceImpl implements UserService {
                 // Lưu lại vào database
                 return userRepository.save(currentUser);
         }
+
+        @Override
+        public List<User> getAllUsers() {
+                return userRepository.findAll();
+        }
+
+        @Override
+        public User getUserById(Long userId) {
+                return userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        }
+
+        @Override
+        @Transactional
+        public boolean deleteUser(Long userId) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+                // Xử lý bất đồng bộ các thao tác xóa dữ liệu
+                CompletableFuture<Void> deleteActivities = CompletableFuture.runAsync(() -> {
+                        deviceActivityRepository.findByUser_UserId(userId)
+                                        .forEach(activity -> deviceActivityRepository.delete(activity));
+                });
+
+                CompletableFuture<Void> deleteSchedules = CompletableFuture.runAsync(() -> {
+                        scheduleRepository.findByUser_UserId(userId)
+                                        .forEach(schedule -> scheduleRepository.delete(schedule));
+                });
+
+                CompletableFuture<Void> deleteNotifications = CompletableFuture.runAsync(() -> {
+                        notificationRepository.deleteByUser_UserId(userId);
+                });
+
+                CompletableFuture<Void> deleteSubscriptions = CompletableFuture.runAsync(() -> {
+                        pushSubscriptionRepository.findByUserId(userId)
+                                        .forEach(subscription -> pushSubscriptionRepository.delete(subscription));
+                });
+
+                CompletableFuture<Void> deleteCameraRecordings = CompletableFuture.runAsync(() -> {
+                        user.getCameras().forEach(camera -> cameraRecordingRepository
+                                        .findByCamera_CameraIdOrderByStartTimeDesc(camera.getCameraId())
+                                        .forEach(recording -> cameraRecordingRepository.delete(recording)));
+                });
+
+                // Xử lý quan hệ chia sẻ camera
+                CompletableFuture<Void> handleSharedCameras = CompletableFuture.runAsync(() -> {
+                        if (user.getSharedCameras() != null) {
+                                user.getSharedCameras().forEach(camera -> {
+                                        camera.getSharedUsers().remove(user);
+                                });
+                        }
+                });
+
+                // Đặt owner của các thiết bị về null
+                CompletableFuture<Void> clearDeviceOwners = CompletableFuture.runAsync(() -> {
+                        user.getDoors().forEach(door -> door.setUser(null));
+                        user.getLights().forEach(light -> light.setUser(null));
+                        user.getCameras().forEach(camera -> camera.setUser(null));
+                });
+
+                try {
+                        // Chờ tất cả các thao tác xóa hoàn thành
+                        CompletableFuture.allOf(
+                                        deleteActivities,
+                                        deleteSchedules,
+                                        deleteNotifications,
+                                        deleteSubscriptions,
+                                        deleteCameraRecordings,
+                                        handleSharedCameras,
+                                        clearDeviceOwners).get(30, TimeUnit.SECONDS); // Timeout sau 30 giây
+
+                        // Xóa người dùng sau khi đã xử lý xong các quan hệ
+                        userRepository.delete(user);
+                        return true;
+                } catch (Exception e) {
+                        throw new RuntimeException("Lỗi khi xóa người dùng: " + e.getMessage());
+                }
+        }
+
 }

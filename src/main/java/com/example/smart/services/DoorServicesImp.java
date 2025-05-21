@@ -1,6 +1,8 @@
 package com.example.smart.services;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,9 +44,9 @@ public class DoorServicesImp implements DoorServices {
 
     @Override
     public void userRemoveDoor(Long doorId, Long userId) {
-        Door selectedDoor = doorRepo.findById(userId).get();
+        Door selectedDoor = doorRepo.findById(doorId).get();
         // tránh trường hợp một api từ user khác xóa door của user khác
-        if (selectedDoor.getUser().getUserId() == userId) {
+        if (selectedDoor.getUser().getUserId().equals(userId)) {
             selectedDoor.setUser(null);
         }
         // xóa lịch sử
@@ -152,7 +154,8 @@ public class DoorServicesImp implements DoorServices {
                 // Xử lý ngoại lệ (có thể do mất kết nối, timeout, vv)
                 throw new IllegalStateException("Failed to communicate with ESP32: " + e.getMessage(), e);
             }
-        } else if (doorRepo.existsById(doorId) && doorRepo.findById(doorId).get().getUser().getUserId() == userId) {
+        } else if (doorRepo.existsById(doorId)
+                && doorRepo.findById(doorId).get().getUser().getUserId().equals(userId)) {
             Door thisdoor = doorRepo.findById(doorId).get();
             thisdoor.setDoorName(doorName);
             doorRepo.save(thisdoor);
@@ -177,25 +180,71 @@ public class DoorServicesImp implements DoorServices {
     // user bật tắt báo động cửa
     @Override
     public void toggleDoorAlarm(Long doorId, Long userId) {
-        Door thisDoor = doorRepo.findById(doorId).orElseThrow(() -> new IllegalArgumentException("Door not found"));
-        if (thisDoor.getUser() != null && thisDoor.getUser().getUserId() == userId) {
-            thisDoor.setDoorLockDown(thisDoor.getDoorLockDown() == 1 ? 0 : 1);
-            Integer doorLockDown = thisDoor.getDoorLockDown();
+        try {
+            System.out.println("Attempting to toggle alarm for door: " + doorId + " by user: " + userId);
+
+            Door thisDoor = doorRepo.findById(doorId).orElseThrow(() -> {
+                System.err.println("Door not found with ID: " + doorId);
+                return new IllegalArgumentException("Door not found");
+            });
+
+            System.out.println("Found door: " + thisDoor.getDoorName() + " with current alarm status: "
+                    + thisDoor.getDoorLockDown());
+
+            if (thisDoor.getUser() == null) {
+                System.err.println("Door " + doorId + " has no owner");
+                throw new IllegalArgumentException("Door has no owner");
+            }
+
+            if (!thisDoor.getUser().getUserId().equals(userId)) {
+                System.err.println("User " + userId + " is not the owner of door " + doorId);
+                throw new IllegalArgumentException("User is not the owner of this door");
+            }
+
+            // Đảo trạng thái báo động
+            Integer newLockDown = thisDoor.getDoorLockDown() == 1 ? 0 : 1;
+            System.out.println("Changing door alarm status from " + thisDoor.getDoorLockDown() + " to " + newLockDown);
+
+            thisDoor.setDoorLockDown(newLockDown);
             String doorIp = thisDoor.getDoorIp();
             Long ownerId = thisDoor.getOwnerId();
+
             doorRepo.save(thisDoor);
+            System.out.println("Saved new door status to database");
+
             try {
-                doorSocketHandler.sendControlSignal(doorId, "doorLockDown:" + thisDoor.getDoorLockDown());
+                String command = "doorLockDown:" + newLockDown;
+                System.out.println("Sending command to door: " + command);
+                doorSocketHandler.sendControlSignal(doorId, command);
+
                 clientWebSocketHandler.notifyDoorUpdate(thisDoor);
-                // lưu log
-                String activityType = doorLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
-                deviceActivityService.logDoorActivity(doorId, activityType, null, null, null,
-                        null,
-                        null, null, doorIp, ownerId);
+                System.out.println("Notified clients of door update");
+
+                String activityType = newLockDown == 1 ? "ALARM_ON" : "ALARM_OFF";
+                deviceActivityService.logDoorActivity(doorId, activityType, null, null, null, null, null, null, doorIp,
+                        ownerId);
+                System.out.println("Logged door activity: " + activityType);
+
             } catch (Exception e) {
-                throw new RuntimeException("Can't send control signal to door");
+                System.err.println("Error sending control signal to door: " + e.getMessage());
+                throw new RuntimeException("Failed to send control signal to door: " + e.getMessage());
             }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Invalid door operation: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            System.err.println("Unexpected error in toggleDoorAlarm: " + e.getMessage());
+            throw new RuntimeException("Failed to toggle door alarm: " + e.getMessage());
         }
+    }
+
+    // admin thêm người dùng vào cửa
+    @Override
+    public void adminAddUserToDoor(Long doorId, Long userId) {
+        Door door = doorRepo.findById(doorId).orElseThrow(() -> new IllegalArgumentException("Door not found"));
+        door.setUser(userRepo.findById(userId).get());
+        door.setDoorName("");
+        doorRepo.save(door);
     }
 
     // admin thêm một thiết bị cửa mới vào db
@@ -207,7 +256,8 @@ public class DoorServicesImp implements DoorServices {
         newDoor.setDoorStatus(null);
         newDoor.setDoorIp(null);
         newDoor.setUser(null);
-        newDoor.setDoorLockDown(0);
+        newDoor.setDoorLockDown(null);
+        newDoor.setCreatedTime(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
         doorRepo.save(newDoor);
     }
 
@@ -264,5 +314,10 @@ public class DoorServicesImp implements DoorServices {
         if (clientWebSocketHandler != null && door.getUser() != null) {
             clientWebSocketHandler.notifyDoorUpdate(door);
         }
+    }
+
+    @Override
+    public List<Door> getDoorsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return doorRepo.findByCreatedTimeBetween(start, end);
     }
 }

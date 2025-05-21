@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 
 import com.example.smart.entities.Light;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Repository
 public interface LightRepositories extends JpaRepository<Light, Long> {
@@ -15,5 +16,6 @@ public interface LightRepositories extends JpaRepository<Light, Long> {
       public List<Light> findByUser_UserId(Long userId);
 
       List<Light> findByLightIdBetween(Long start, Long end);
-      
+
+      List<Light> findByCreatedTimeBetween(LocalDateTime start, LocalDateTime end);
 }

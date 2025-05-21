@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,9 +20,11 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.example.smart.entities.Camera;
 import com.example.smart.entities.DeviceActivity;
 import com.example.smart.entities.Door;
 import com.example.smart.entities.User;
+import com.example.smart.services.CameraService;
 import com.example.smart.services.DeviceActivityService;
 import com.example.smart.services.DoorServicesImp;
 import com.example.smart.services.EmailService;
@@ -38,6 +41,8 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     DeviceActivityService deviceActivityService;
     @Autowired
     NotificationService notificationService;
+    @Autowired
+    CameraService cameraService;
 
     // Map để theo dõi trạng thái kết nối của từng cửa
     private Map<Long, Boolean> doorConnectionStatus = new ConcurrentHashMap<>();
@@ -51,6 +56,31 @@ public class DoorSocketHandler extends TextWebSocketHandler {
     private final Map<WebSocketSession, Instant> lastActivityTime = new ConcurrentHashMap<>();
     // Thời gian tối đa (giây) cửa được phép không có hoạt động
     private static final long MAX_INACTIVE_TIME_SECONDS = 60; // 1 phút
+
+    private Map<Long, Instant> lastUpdateTime = new ConcurrentHashMap<>();
+    private static final long UPDATE_THRESHOLD_MS = 100; // 100ms
+
+    private Map<Long, DoorState> lastDoorState = new ConcurrentHashMap<>();
+
+    private static class DoorState {
+        Integer doorStatus;
+        Integer doorLockDown;
+        String doorIp;
+
+        public DoorState(Integer doorStatus, Integer doorLockDown, String doorIp) {
+            this.doorStatus = doorStatus;
+            this.doorLockDown = doorLockDown;
+            this.doorIp = doorIp;
+        }
+
+        public boolean equals(DoorState other) {
+            if (other == null)
+                return false;
+            return Objects.equals(this.doorStatus, other.doorStatus) &&
+                    Objects.equals(this.doorLockDown, other.doorLockDown) &&
+                    Objects.equals(this.doorIp, other.doorIp);
+        }
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -160,6 +190,18 @@ public class DoorSocketHandler extends TextWebSocketHandler {
             Long ownerId, String token) {
         String secretKey = "12344321";
         String authToken = secretKey + doorId.toString();
+
+        // Kiểm tra thời gian từ lần cập nhật cuối
+        Instant now = Instant.now();
+        Instant lastUpdate = lastUpdateTime.get(doorId);
+        if (lastUpdate != null &&
+                ChronoUnit.MILLIS.between(lastUpdate, now) < UPDATE_THRESHOLD_MS) {
+            System.out.println("Bỏ qua cập nhật cho cửa " + doorId + " - Quá sớm sau lần cập nhật trước");
+            return true; // Bỏ qua cập nhật nếu quá sớm
+        }
+
+        lastUpdateTime.put(doorId, now);
+
         System.out.println(
                 "Received message from Door ID: " + doorId + ", Status: " + doorStatus + " , LockDown:" + doorLockDown
                         + ", IP: " + doorIp + " , Token: " + authToken);
@@ -169,22 +211,19 @@ public class DoorSocketHandler extends TextWebSocketHandler {
 
             Door thisDoor = doorService.findByDoorId(doorId);
             // Kiểm tra user mới đã được thêm vào ESP chưa, nếu chưa thì cập nhật trước.
-            if (thisDoor.getUser() != null && thisDoor.getUser().getUserId() != ownerId) {
+            if (thisDoor.getUser() != null && !thisDoor.getUser().getUserId().equals(ownerId)) {
                 try {
                     sendControlSignal(doorId, "ownerId:" + thisDoor.getUser().getUserId());
-
                 } catch (IOException err) {
                     System.err.println("error while sending to door device");
                 }
                 doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp, thisDoor.getUser().getUserId());
-            } else if (thisDoor.getUser() == null && ownerId != -1) {
+            } else if (thisDoor.getUser() == null && !Long.valueOf(-1).equals(ownerId)) {
                 try {
                     sendControlSignal(doorId, "ownerId:" + -1);
-
                 } catch (Exception e) {
                     System.err.println("error while sending to door device");
                 }
-                // doorService.updatedoorStatus(doorId, doorStatus, doorIp, null);
             } else {
                 doorService.updateDoorStatus(doorId, doorStatus, doorLockDown, doorIp, ownerId);
             }
@@ -200,6 +239,17 @@ public class DoorSocketHandler extends TextWebSocketHandler {
                 doorConnectionStatus.put(doorId, true);
                 System.out.println("Door " + doorId + " connected successfully.");
             }
+
+            // Kiểm tra trạng thái có thay đổi không
+            DoorState currentState = new DoorState(doorStatus, doorLockDown, doorIp);
+            DoorState lastState = lastDoorState.get(doorId);
+
+            if (lastState != null && lastState.equals(currentState)) {
+                System.out.println("Bỏ qua cập nhật cho cửa " + doorId + " - Trạng thái không thay đổi");
+                return true; // Bỏ qua nếu trạng thái không thay đổi
+            }
+
+            lastDoorState.put(doorId, currentState);
 
             return true;
         } else {
@@ -258,6 +308,10 @@ public class DoorSocketHandler extends TextWebSocketHandler {
         WebSocketSession session = arduinoSessions.get(doorId);
 
         if (session != null && session.isOpen()) {
+            // Đảm bảo format lệnh doorLockDown đúng
+            if (controlMessage.startsWith("doorLockDown:")) {
+                System.out.println("Sending doorLockDown command to door " + doorId + ": " + controlMessage);
+            }
             session.sendMessage(new TextMessage(controlMessage));
         } else {
             System.err.println("No active session found for Arduino ID: " + doorId);
@@ -319,6 +373,10 @@ public class DoorSocketHandler extends TextWebSocketHandler {
 
             // Cập nhật trạng thái cảnh báo ngay lập tức
             doorService.updateDoorAlert(doorId, 1);
+            // khởi động chế độ ghi hình của các camera ngay lập tức.
+            Long ownerId = doorService.findByDoorId(doorId).getUser().getUserId();
+            cameraService.startRecordingAllCameraByDoor(ownerId);
+            ;
 
             try {
                 // Lấy thông tin cửa và người dùng
